@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Tournament Dashboard</h1>
+<div id="dashboard-root">Loading...</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/poll.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Tournament Setup{% endblock %}
+{% block content %}
+<div class="landing">
+    <h1>Tekken Tournament Organizer</h1>
+
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <ul class="flash">
+        {% for m in messages %}<li>{{ m }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+
+    <p>Make sure everyone's connected to the same WiFi or Windows Mobile Hotspot on this laptop, then scan or browse to:</p>
+    <p class="ip-line"><strong>{{ dashboard_url }}</strong></p>
+    <img class="qr" src="{{ url_for('setup.qr_png') }}" alt="QR code to dashboard" width="240" height="240">
+    <p><a href="{{ url_for('organizer.index') }}">Go to Organizer panel</a></p>
+</div>
+
+<div class="tournament-mgmt">
+    <h2>Tournament</h2>
+    <p class="hint">
+        Current tournament: <strong>{{ phase }}</strong> phase, {{ player_count }} player{{ '' if player_count == 1 else 's' }}.
+        Every change is saved to disk instantly, plus a rolling autosave -- closing the app never loses progress.
+    </p>
+
+    <div class="mgmt-actions">
+        <a class="mgmt-continue" href="{{ url_for('dashboard.dashboard') }}">Continue current tournament</a>
+
+        <form method="post" action="{{ url_for('setup.tournament_new') }}"
+              onsubmit="return confirm('Start a new tournament? The current one will be archived as a save file first.')">
+            <button type="submit">Start new tournament</button>
+        </form>
+
+        <form method="post" action="{{ url_for('setup.tournament_save') }}">
+            <input type="text" name="name" placeholder="Save name (optional)">
+            <button type="submit">Save current as...</button>
+        </form>
+    </div>
+
+    <h3>Local saves</h3>
+    {% if saves %}
+    <table class="saves-table">
+        <tr><th>Save</th><th>Last updated</th><th></th></tr>
+        {% for s in saves %}
+        <tr>
+            <td>{{ s['filename'] }}</td>
+            <td>{{ s['modified'] }}</td>
+            <td class="save-actions">
+                <form method="post" action="{{ url_for('setup.tournament_load') }}"
+                      onsubmit="return confirm('Load {{ s['filename'] }}? The current tournament will be archived as a save file first.')">
+                    <input type="hidden" name="filename" value="{{ s['filename'] }}">
+                    <button type="submit">Load</button>
+                </form>
+                <form method="post" action="{{ url_for('setup.tournament_delete') }}"
+                      onsubmit="return confirm('Delete {{ s['filename'] }}? This can\'t be undone.')">
+                    <input type="hidden" name="filename" value="{{ s['filename'] }}">
+                    <button type="submit" class="delete-btn">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p class="hint">No saves yet. The autosave will appear here after the first change.</p>
+    {% endif %}
+</div>
+{% endblock %}

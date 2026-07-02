@@ -1,0 +1,15 @@
+<div class="bracket">
+    {% for round_num in [1, 2, 3] %}
+    {% if bracket_rounds.get(round_num) %}
+    <div class="bracket-round">
+        <h4>{{ round_names[round_num] }}</h4>
+        {% for m in bracket_rounds[round_num] %}
+        <div class="bracket-match{% if m['winner_id'] %} decided{% endif %}">
+            <div class="{% if m['winner_id'] == m['player1_id'] %}winner{% endif %}">{{ m['player1_name'] or 'TBD' }}</div>
+            <div class="{% if m['winner_id'] == m['player2_id'] %}winner{% endif %}">{{ m['player2_name'] or 'TBD' }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>

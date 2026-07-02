@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Organizer{% endblock %}
+{% block content %}
+<h1>Organizer Panel</h1>
+<p class="hint">Set up players and groups here. Match results, undo, and the Phase 2 transition all happen on the <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>.</p>
+
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+<ul class="flash">
+    {% for m in messages %}<li>{{ m }}</li>{% endfor %}
+</ul>
+{% endif %}
+{% endwith %}
+
+<div class="setup-columns">
+<section class="setup-col">
+    <h2>Bracket ({{ bracket_players|length }}/8 players)</h2>
+    <form method="post" action="{{ url_for('organizer.add_player') }}">
+        <input type="hidden" name="group" value="bracket">
+        <input type="text" name="name" placeholder="Player name" required>
+        <button type="submit">Add to bracket</button>
+    </form>
+
+    <p class="hint">Drag players to set the seeding order. The list maps straight onto the bracket: 1 plays 2, 3 plays 4, and so on.</p>
+    <ul class="seed-list" id="seed-list">
+        {% for p in bracket_players %}
+        <li draggable="true" data-player-id="{{ p['id'] }}">
+            <span class="seed-num">{{ loop.index }}</span>
+            <span class="drag-handle">&#x2630;</span>
+            {{ p['name'] }}
+            <form method="post" action="{{ url_for('organizer.remove_player', player_id=p['id']) }}">
+                <button type="submit">Remove</button>
+            </form>
+        </li>
+        {% else %}
+        <li class="empty">No bracket players yet.</li>
+        {% endfor %}
+    </ul>
+
+    <form method="post" action="{{ url_for('organizer.seed_bracket') }}" id="seed-form">
+        <button type="submit" {% if bracket_players|length != 8 %}disabled{% endif %}>
+            Build bracket{% if bracket_players|length != 8 %} (needs exactly 8){% endif %}
+        </button>
+    </form>
+    {% include "partials/bracket.html" with context %}
+</section>
+
+<section class="setup-col">
+    <h2>Round Robin ({{ rr_players|length }} players)</h2>
+    <form method="post" action="{{ url_for('organizer.add_player') }}">
+        <input type="hidden" name="group" value="round_robin">
+        <input type="text" name="name" placeholder="Player name" required>
+        <button type="submit">Add to round robin</button>
+    </form>
+
+    <ul class="player-list">
+        {% for p in rr_players %}
+        <li>
+            {{ p['name'] }}
+            <form method="post" action="{{ url_for('organizer.remove_player', player_id=p['id']) }}" style="display:inline">
+                <button type="submit">Remove</button>
+            </form>
+        </li>
+        {% else %}
+        <li>No round robin players yet.</li>
+        {% endfor %}
+    </ul>
+
+    <form method="post" action="{{ url_for('organizer.build_round_robin') }}">
+        <button type="submit" {% if rr_players|length < 2 %}disabled{% endif %}>Build round robin (everyone plays everyone)</button>
+    </form>
+    {% include "partials/round_robin.html" with context %}
+</section>
+</div>
+
+<section>
+    <h2>Status</h2>
+    <p>Tournament phase: {{ state['phase'] }}</p>
+    <p>Bracket champion: {{ bracket_champ['name'] if bracket_champ else 'not decided yet' }}</p>
+    <p>Round robin champion: {{ rr_champ['name'] if rr_champ else 'not decided yet' }}</p>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/organizer.js') }}"></script>
+{% endblock %}

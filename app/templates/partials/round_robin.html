@@ -1,0 +1,22 @@
+<div class="rr">
+    <div class="rr-standings">
+        <h4>Standings</h4>
+        <table>
+            <tr><th>Player</th><th>Wins</th></tr>
+            {% for s in rr_standings %}
+            <tr><td>{{ s['name'] }}</td><td>{{ s['wins'] }}</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+    <div class="rr-matches">
+        <h4>Matches</h4>
+        {% for m in rr_matches %}
+        <div class="rr-match{% if m['winner_id'] %} decided{% endif %}{% if m['is_tiebreaker'] %} tiebreaker{% endif %}">
+            {% if m['is_tiebreaker'] %}<span class="tb-label">Tiebreaker</span> {% endif %}
+            <span class="{% if m['winner_id'] == m['player1_id'] %}winner{% endif %}">{{ m['player1_name'] }}</span>
+            vs
+            <span class="{% if m['winner_id'] == m['player2_id'] %}winner{% endif %}">{{ m['player2_name'] }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
