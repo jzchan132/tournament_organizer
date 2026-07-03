@@ -12,8 +12,9 @@
     {% endif %}
     {% endwith %}
 
-    <p>Make sure everyone's connected to the same WiFi or Windows Mobile Hotspot on this laptop, then scan or browse to:</p>
-    <p class="ip-line"><strong>{{ dashboard_url }}</strong></p>
+    <p>Make sure everyone's connected to the same WiFi or Windows Mobile Hotspot on this laptop, then scan the code or type:</p>
+    <p class="ip-line"><strong>{{ alias_url }}</strong></p>
+    <p class="hint">If the name doesn't load, use the address on the QR code: {{ dashboard_url }}</p>
     <img class="qr" src="{{ url_for('setup.qr_png') }}" alt="QR code to dashboard" width="240" height="240">
     <p><a href="{{ url_for('organizer.index') }}">Go to Organizer panel</a></p>
 </div>

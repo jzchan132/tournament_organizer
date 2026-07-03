@@ -21,6 +21,16 @@ def get_lan_ip():
         s.close()
 
 
+def get_hostname():
+    """The machine's name, usable as http://<name> by devices on the hotspot.
+
+    When this laptop runs Windows Mobile Hotspot, it is also the DNS server
+    for everyone who joins, and it resolves its own computer name -- so the
+    name is a typeable alias for the IP.
+    """
+    return socket.gethostname().split(".")[0].lower()
+
+
 def make_qr_png_bytes(url):
     img = qrcode.make(url)
     buf = io.BytesIO()
