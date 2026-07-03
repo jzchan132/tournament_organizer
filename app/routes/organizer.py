@@ -66,11 +66,21 @@ def remove_player(player_id):
     return redirect(url_for("organizer.index"))
 
 
+def _phase_is_setup(db):
+    return (
+        db.execute("SELECT phase FROM tournament_state WHERE id = 1").fetchone()["phase"]
+        == "setup"
+    )
+
+
 @bp.route("/bracket/seed", methods=["POST"])
 def seed_bracket():
+    db = get_db()
+    if not _phase_is_setup(db):
+        flash("Phase 2 has already started -- the bracket is locked.")
+        return redirect(url_for("organizer.index"))
     raw_ids = request.form.getlist("seed")
     ids = [int(x) for x in raw_ids if x]
-    db = get_db()
     bracket_ids = {
         r["id"] for r in db.execute("SELECT id FROM players WHERE in_bracket = 1")
     }
@@ -113,6 +123,9 @@ def seed_bracket():
 @bp.route("/round_robin/build", methods=["POST"])
 def build_round_robin():
     db = get_db()
+    if not _phase_is_setup(db):
+        flash("Phase 2 has already started -- the round robin is locked.")
+        return redirect(url_for("organizer.index"))
     ids = [r["id"] for r in db.execute("SELECT id FROM players WHERE in_round_robin = 1")]
     if len(ids) < 2:
         flash("Add at least 2 players to the round robin first (4 is the standard format).")

@@ -73,11 +73,12 @@ def get_round_robin_matches(db):
 
 
 def get_round_robin_standings(db):
-    # Tiebreaker matches decide the champion but don't count as wins here.
+    # Tiebreaker wins count toward the standings, so the table keeps moving
+    # while ties are being played off.
     rows = db.execute(
         """SELECT p.id, p.name, COUNT(rm.id) AS wins
            FROM players p
-           JOIN round_robin_matches rm ON rm.winner_id = p.id AND rm.is_tiebreaker = 0
+           JOIN round_robin_matches rm ON rm.winner_id = p.id
            WHERE p.in_round_robin = 1
            GROUP BY p.id
            UNION ALL
@@ -85,7 +86,7 @@ def get_round_robin_standings(db):
            FROM players p
            WHERE p.in_round_robin = 1 AND p.id NOT IN (
                SELECT DISTINCT winner_id FROM round_robin_matches
-               WHERE winner_id IS NOT NULL AND is_tiebreaker = 0
+               WHERE winner_id IS NOT NULL
            )
            ORDER BY wins DESC"""
     ).fetchall()
@@ -95,40 +96,36 @@ def get_round_robin_standings(db):
 def resolve_rr_champion(db):
     """Work out the round robin champion, accounting for tiebreaker matches.
 
-    Ties for most wins are settled by a ladder of tiebreaker matches: the
-    first two tied players play, the loser is eliminated, the winner plays
-    the next tied player, and so on until one remains.
+    When every existing match is decided but several players share the most
+    wins, a full round of tiebreakers (every tied pair plays) is owed. Those
+    wins count toward the standings, and if a round ends still tied (a win
+    cycle), another round is owed -- rounds keep coming until one player
+    stands alone at the top.
 
     Returns {"champion": {id, name} or None,
-             "needed_tiebreaker": (player1_id, player2_id) or None}
-    where needed_tiebreaker is the next tiebreaker match that should exist
-    but hasn't been created yet.
+             "needed_tiebreakers": [(player1_id, player2_id), ...]}
+    where needed_tiebreakers are matches that should exist but haven't been
+    created yet (empty when waiting on results or when a champion exists).
     """
+    from itertools import combinations
+
     standings = get_round_robin_standings(db)
     matches = get_round_robin_matches(db)
-    regular = [m for m in matches if not m["is_tiebreaker"]]
-    tiebreakers = [m for m in matches if m["is_tiebreaker"]]
 
-    if not standings or not regular or any(m["winner_id"] is None for m in regular):
-        return {"champion": None, "needed_tiebreaker": None}
+    if not standings or not matches or any(m["winner_id"] is None for m in matches):
+        return {"champion": None, "needed_tiebreakers": []}
 
     top_wins = standings[0]["wins"]
-    contenders = [s["id"] for s in standings if s["wins"] == top_wins]
-    names = {s["id"]: s["name"] for s in standings}
-
-    next_tb = 0
-    while len(contenders) > 1:
-        if next_tb >= len(tiebreakers):
-            return {"champion": None, "needed_tiebreaker": (contenders[0], contenders[1])}
-        tb = tiebreakers[next_tb]
-        next_tb += 1
-        if tb["winner_id"] is None:
-            return {"champion": None, "needed_tiebreaker": None}  # waiting on this one
-        loser = tb["player2_id"] if tb["winner_id"] == tb["player1_id"] else tb["player1_id"]
-        contenders = [c for c in contenders if c != loser]
-
-    champ_id = contenders[0]
-    return {"champion": {"id": champ_id, "name": names[champ_id]}, "needed_tiebreaker": None}
+    leaders = [s for s in standings if s["wins"] == top_wins]
+    if len(leaders) == 1:
+        return {
+            "champion": {"id": leaders[0]["id"], "name": leaders[0]["name"]},
+            "needed_tiebreakers": [],
+        }
+    return {
+        "champion": None,
+        "needed_tiebreakers": list(combinations([s["id"] for s in leaders], 2)),
+    }
 
 
 def round_robin_champion(db):

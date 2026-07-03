@@ -4,6 +4,10 @@ let currentState = null;
 let refreshNow = null;
 let lastRenderSig = null;
 let timerEndsAt = null; // ms epoch when the Phase 2 clock hits zero; ticks client-side
+let lastPhase = null; // for announcing phase transitions
+
+const BIG_TITLE = "Champion of Champions";
+const SMALL_TITLE = "Champion of the People";
 
 function playChime() {
     try {
@@ -88,6 +92,29 @@ function checkForNewCompletions(state) {
         }
     }
     previousCompleted = completed;
+}
+
+function checkForPhaseChange(state) {
+    if (lastPhase !== null && state.phase !== lastPhase && state.phase2) {
+        const bk = state.phase2.big_king.name;
+        const sk = state.phase2.small_king.name;
+        if (state.phase === "phase2") {
+            playChime();
+            showToast(`PHASE 2 BEGINS! ${bk} enters as ${BIG_TITLE} — ${sk} rises as ${SMALL_TITLE}!`);
+        } else if (state.phase === "complete") {
+            playChime();
+            showToast(endingAnnouncement(state));
+        }
+    }
+    lastPhase = state.phase;
+}
+
+function endingAnnouncement(state) {
+    const bk = state.phase2.big_king.name;
+    if (state.phase2.ended_reason === "timer") {
+        return `THAT'S TIME! The final bell sounds — ${bk} walks away as the undisputed ${BIG_TITLE}!`;
+    }
+    return `IT'S OVER! No challenger left standing — ${bk} has conquered them all and reigns as the undisputed ${BIG_TITLE}!`;
 }
 
 function phase1MatchCard(m, label, kind) {
@@ -183,7 +210,7 @@ function phase2HeroCard(state) {
     const defender = isRematch
         ? { id: p2.big_king.id, name: p2.big_king.name }
         : { id: p2.small_king.id, name: p2.small_king.name };
-    const label = isRematch ? "Next: Small King challenges Big King" : "Next Challenge";
+    const label = isRematch ? `TITLE MATCH: ${SMALL_TITLE} challenges the ${BIG_TITLE}` : "Next Challenge";
     let html = `<div class="hero-card">
         <div class="hero-label">${label}</div>
         <div class="hero-players">${challenger.name} <span class="vs">vs</span> ${defender.name}</div>`;
@@ -203,17 +230,19 @@ function renderPhase2(state) {
     html += phase2HeroCard(state);
     html += "</div>";
 
+    if (state.phase === "phase2" && p2.match_log.length === 0) {
+        html += `<div class="warning-banner intro">PHASE 2 BEGINS! Bracket champion <strong>${p2.big_king.name}</strong> enters as the ${BIG_TITLE} — round robin champion <strong>${p2.small_king.name}</strong> rises as the ${SMALL_TITLE}. Who dares to challenge?</div>`;
+    }
     if (p2.queue_empty_warning && state.phase === "phase2") {
-        html +=
-            '<div class="warning-banner">The Big King just defended with an empty queue -- one more win ends the tournament!</div>';
+        html += `<div class="warning-banner">The ${BIG_TITLE} just defended an empty queue — one more victory and the tournament is over!</div>`;
     }
     if (state.phase === "complete") {
-        html += `<div class="warning-banner complete">Tournament complete (${p2.ended_reason}). Big King: ${p2.big_king.name}</div>`;
+        html += `<div class="warning-banner complete">${endingAnnouncement(state)}</div>`;
     }
 
     html += `<div class="king-status">
-        <div class="king-badge big">Big King<br><strong>${p2.big_king.name}</strong></div>
-        <div class="king-badge small">Small King<br><strong>${p2.small_king.name}</strong></div>
+        <div class="king-badge big">${BIG_TITLE}<br><strong>${p2.big_king.name}</strong></div>
+        <div class="king-badge small">${SMALL_TITLE}<br><strong>${p2.small_king.name}</strong></div>
         <div class="king-badge timer">Time Remaining<br><strong id="p2-timer">${formatDuration(p2.seconds_remaining)}</strong></div>
     </div>`;
 
@@ -232,14 +261,14 @@ function renderPhase2(state) {
                 <button type="submit">Join Challenge Queue</button>
             </form>
             <form id="join-rematch-form">
-                <button type="submit">${p2.small_king.name}: Challenge the Big King</button>
+                <button type="submit">${p2.small_king.name}: Challenge the ${BIG_TITLE}</button>
             </form>
         </div>`;
     }
 
     html += '<h4>Challenge Queue</h4><ol class="queue-list">';
     p2.queue.forEach((q) => {
-        html += `<li>${q.player_name}${q.entry_type === "rematch" ? " (rematch vs Big King)" : ""}</li>`;
+        html += `<li>${q.player_name}${q.entry_type === "rematch" ? ` (title match vs the ${BIG_TITLE})` : ""}</li>`;
     });
     if (p2.queue.length === 0) html += "<li>Empty</li>";
     html += "</ol>";
@@ -302,6 +331,7 @@ function updateTimerDisplay() {
 function render(state) {
     currentState = state;
     checkForNewCompletions(state);
+    checkForPhaseChange(state);
 
     // Re-sync the client-side clock on every poll; it ticks locally between polls.
     if (state.phase2 && state.phase2.seconds_remaining != null) {

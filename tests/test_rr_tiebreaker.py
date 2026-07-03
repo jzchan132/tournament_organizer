@@ -59,17 +59,28 @@ def rr_champion(db_path):
     return champ
 
 
-def test_two_way_tie_spawns_tiebreaker_and_resolves(client):
-    c, db_path = client
-    m = setup_rr(c, db_path)
+def wins(db_path, player_id):
+    return query(
+        db_path,
+        "SELECT COUNT(*) AS w FROM round_robin_matches WHERE winner_id = ?",
+        (player_id,),
+    )[0]["w"]
+
+
+def play_two_way_tie(c, m):
     # P1 and P2 finish 2-1; P3 and P4 finish 1-2
     record(c, m[(1, 2)], 1)
     record(c, m[(1, 3)], 1)
     record(c, m[(1, 4)], 4)
     record(c, m[(2, 3)], 2)
     record(c, m[(2, 4)], 2)
-    assert tiebreakers(db_path) == []  # regular play not finished yet
     record(c, m[(3, 4)], 3)
+
+
+def test_two_way_tie_spawns_tiebreaker_and_resolves(client):
+    c, db_path = client
+    m = setup_rr(c, db_path)
+    play_two_way_tie(c, m)
 
     tbs = tiebreakers(db_path)
     assert len(tbs) == 1
@@ -79,18 +90,12 @@ def test_two_way_tie_spawns_tiebreaker_and_resolves(client):
     resp = record(c, tbs[0]["id"], 2)
     assert resp.status_code == 200
     assert rr_champion(db_path)["id"] == 2
-    # tiebreaker win doesn't inflate the standings
-    standings = query(
-        db_path,
-        "SELECT COUNT(*) AS wins FROM round_robin_matches "
-        "WHERE winner_id = 2 AND is_tiebreaker = 0",
-    )
-    assert standings[0]["wins"] == 2
+    # the tiebreaker win counts: P2 now leads the standings outright at 3
+    assert wins(db_path, 2) == 3
+    assert wins(db_path, 1) == 2
 
 
-def test_three_way_tie_resolves_via_ladder(client):
-    c, db_path = client
-    m = setup_rr(c, db_path)
+def play_three_way_cycle(c, m):
     # cycle: P1 > P2 > P3 > P1, and everyone beats P4 -> three players at 2 wins
     record(c, m[(1, 2)], 1)
     record(c, m[(2, 3)], 2)
@@ -99,33 +104,60 @@ def test_three_way_tie_resolves_via_ladder(client):
     record(c, m[(2, 4)], 2)
     record(c, m[(3, 4)], 3)
 
-    tbs = tiebreakers(db_path)
-    assert len(tbs) == 1
-    first_pair = {tbs[0]["player1_id"], tbs[0]["player2_id"]}
-    assert first_pair < {1, 2, 3}  # two of the three tied players
 
-    winner1 = tbs[0]["player1_id"]
-    record(c, tbs[0]["id"], winner1)
+def test_three_way_tie_generates_full_round(client):
+    c, db_path = client
+    m = setup_rr(c, db_path)
+    play_three_way_cycle(c, m)
 
     tbs = tiebreakers(db_path)
-    assert len(tbs) == 2  # ladder continues: winner vs the remaining player
-    third = ({1, 2, 3} - first_pair).pop()
-    assert {tbs[1]["player1_id"], tbs[1]["player2_id"]} == {winner1, third}
+    assert len(tbs) == 3  # every tied pair plays
+    pairs = {frozenset((tb["player1_id"], tb["player2_id"])) for tb in tbs}
+    assert pairs == {frozenset((1, 2)), frozenset((1, 3)), frozenset((2, 3))}
     assert rr_champion(db_path) is None
 
-    record(c, tbs[1]["id"], third)
-    assert rr_champion(db_path)["id"] == third
+    # decisive round: P1 sweeps, P2 takes the other
+    by_pair = {frozenset((tb["player1_id"], tb["player2_id"])): tb["id"] for tb in tbs}
+    assert record(c, by_pair[frozenset((1, 2))], 1).status_code == 200
+    assert record(c, by_pair[frozenset((1, 3))], 1).status_code == 200
+    assert rr_champion(db_path) is None  # round not finished yet
+    assert record(c, by_pair[frozenset((2, 3))], 2).status_code == 200
+
+    assert rr_champion(db_path)["id"] == 1
+    assert wins(db_path, 1) == 4  # 2 regular + 2 tiebreaker
+
+
+def test_tied_tiebreaker_round_generates_another_round(client):
+    c, db_path = client
+    m = setup_rr(c, db_path)
+    play_three_way_cycle(c, m)
+
+    # tiebreaker round ALSO ends in a cycle: 1>2, 2>3, 3>1 -> tied again at 3
+    tbs = tiebreakers(db_path)
+    by_pair = {frozenset((tb["player1_id"], tb["player2_id"])): tb["id"] for tb in tbs}
+    record(c, by_pair[frozenset((1, 2))], 1)
+    record(c, by_pair[frozenset((2, 3))], 2)
+    record(c, by_pair[frozenset((1, 3))], 3)
+
+    assert rr_champion(db_path) is None
+    tbs = tiebreakers(db_path)
+    assert len(tbs) == 6  # a second full round was generated
+
+    # second round is decisive
+    new_round = tbs[3:]
+    by_pair = {frozenset((tb["player1_id"], tb["player2_id"])): tb["id"] for tb in new_round}
+    record(c, by_pair[frozenset((1, 2))], 1)
+    record(c, by_pair[frozenset((1, 3))], 1)
+    record(c, by_pair[frozenset((2, 3))], 2)
+
+    assert rr_champion(db_path)["id"] == 1
+    assert wins(db_path, 1) == 5  # 2 regular + 1 first round + 2 second round
 
 
 def test_undo_regular_match_discards_tiebreakers(client):
     c, db_path = client
     m = setup_rr(c, db_path)
-    record(c, m[(1, 2)], 1)
-    record(c, m[(1, 3)], 1)
-    record(c, m[(1, 4)], 4)
-    record(c, m[(2, 3)], 2)
-    record(c, m[(2, 4)], 2)
-    record(c, m[(3, 4)], 3)
+    play_two_way_tie(c, m)
     assert len(tiebreakers(db_path)) == 1
 
     resp = c.post(f"/api/round_robin/match/{m[(3, 4)]}/undo")
@@ -136,9 +168,26 @@ def test_undo_regular_match_discards_tiebreakers(client):
     # replaying the final match regenerates the tiebreaker
     record(c, m[(3, 4)], 3)
     tbs = tiebreakers(db_path)
-    assert len(tbs) == 1  # P1/P2 tied at 2 wins each again
+    assert len(tbs) == 1
     record(c, tbs[0]["id"], 1)
     assert rr_champion(db_path)["id"] == 1
+
+
+def test_undo_tiebreaker_result_allows_replay(client):
+    c, db_path = client
+    m = setup_rr(c, db_path)
+    play_two_way_tie(c, m)
+    tb = tiebreakers(db_path)[0]
+    record(c, tb["id"], 1)
+    assert rr_champion(db_path)["id"] == 1
+
+    resp = c.post(f"/api/round_robin/match/{tb['id']}/undo")
+    assert resp.status_code == 200
+    assert rr_champion(db_path) is None
+    assert len(tiebreakers(db_path)) == 1  # same match, back to undecided
+
+    record(c, tb["id"], 2)
+    assert rr_champion(db_path)["id"] == 2
 
 
 def test_no_tie_means_no_tiebreaker(client):

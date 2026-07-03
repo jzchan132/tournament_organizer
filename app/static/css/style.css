@@ -298,6 +298,17 @@ main {
     background: rgba(245, 197, 66, 0.1);
     border-color: var(--gold);
     color: var(--gold);
+    font-style: italic;
+    font-size: 1.05rem;
+}
+.warning-banner.intro {
+    background: rgba(255, 46, 80, 0.08);
+    border-color: var(--red-hot);
+    color: var(--text);
+    font-style: italic;
+}
+.warning-banner.intro strong {
+    color: var(--red-hot);
 }
 .king-status {
     display: flex;
