@@ -1,5 +1,4 @@
 import os
-import socket
 import sys
 
 
@@ -29,24 +28,6 @@ def get_data_dir():
     return data_dir
 
 
-def _pick_port():
-    """Prefer port 80 so joining is just http://<name> with no port to type.
-
-    A PORT env var pins it explicitly (used by dev tooling); if 80 is taken
-    or blocked, fall back to 5000.
-    """
-    env = os.environ.get("PORT")
-    if env:
-        return int(env)
-    try:
-        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        probe.bind(("0.0.0.0", 80))
-        probe.close()
-        return 80
-    except OSError:
-        return 5000
-
-
 DB_PATH = os.path.join(get_data_dir(), "tournament.db")
 SCHEMA_PATH = os.path.join(get_resource_dir(), "schema.sql")
-PORT = _pick_port()
+PORT = 5000

@@ -2,26 +2,24 @@ from flask import Blueprint, flash, redirect, render_template, request, send_fil
 
 from app.config import PORT
 from app.db import get_db
-from app.network import get_hostname, get_lan_ip, make_qr_png_bytes
+from app.network import get_lan_ip, make_qr_png_bytes
 from app.persistence import delete_save, list_saves, load_save, new_tournament, save_current
 
 bp = Blueprint("setup", __name__)
 
 
-def _base_url(host):
-    return f"http://{host}" if PORT == 80 else f"http://{host}:{PORT}"
-
-
 @bp.route("/")
 def landing():
     ip = get_lan_ip()
+    dashboard_url = f"http://{ip}:{PORT}/dashboard"
     db = get_db()
     state = db.execute("SELECT phase FROM tournament_state WHERE id = 1").fetchone()
     player_count = db.execute("SELECT COUNT(*) AS c FROM players").fetchone()["c"]
     return render_template(
         "index.html",
-        alias_url=_base_url(get_hostname()),
-        dashboard_url=f"{_base_url(ip)}/dashboard",
+        ip=ip,
+        port=PORT,
+        dashboard_url=dashboard_url,
         phase=state["phase"],
         player_count=player_count,
         saves=list_saves(),
@@ -30,9 +28,9 @@ def landing():
 
 @bp.route("/qr.png")
 def qr_png():
-    # The QR encodes the raw IP -- it always works even if name resolution
-    # doesn't, and nobody has to type it anyway.
-    buf = make_qr_png_bytes(f"{_base_url(get_lan_ip())}/dashboard")
+    ip = get_lan_ip()
+    url = f"http://{ip}:{PORT}/dashboard"
+    buf = make_qr_png_bytes(url)
     return send_file(buf, mimetype="image/png")
 
 
