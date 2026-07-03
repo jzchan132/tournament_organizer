@@ -17,8 +17,9 @@
     <h2>Bracket ({{ bracket_players|length }}/8 players)</h2>
     <form method="post" action="{{ url_for('organizer.add_player') }}">
         <input type="hidden" name="group" value="bracket">
-        <input type="text" name="name" placeholder="Player name" required>
-        <button type="submit">Add to bracket</button>
+        <input type="text" name="name" placeholder="Name, or several: Alex, Bailey, ..." required
+               {% if focus == 'bracket' %}autofocus{% endif %}>
+        <button type="submit" class="btn-ember">Add to bracket</button>
     </form>
 
     <p class="hint">Drag players to set the seeding order. The list maps straight onto the bracket: 1 plays 2, 3 plays 4, and so on.</p>
@@ -29,7 +30,7 @@
             <span class="drag-handle">&#x2630;</span>
             {{ p['name'] }}
             <form method="post" action="{{ url_for('organizer.remove_player', player_id=p['id']) }}">
-                <button type="submit">Remove</button>
+                <button type="submit" class="btn-quiet">Remove</button>
             </form>
         </li>
         {% else %}
@@ -38,7 +39,7 @@
     </ul>
 
     <form method="post" action="{{ url_for('organizer.seed_bracket') }}" id="seed-form">
-        <button type="submit" {% if bracket_players|length != 8 %}disabled{% endif %}>
+        <button type="submit" class="btn-ember" {% if bracket_players|length != 8 %}disabled{% endif %}>
             Build bracket{% if bracket_players|length != 8 %} (needs exactly 8){% endif %}
         </button>
     </form>
@@ -49,8 +50,9 @@
     <h2>Round Robin ({{ rr_players|length }} players)</h2>
     <form method="post" action="{{ url_for('organizer.add_player') }}">
         <input type="hidden" name="group" value="round_robin">
-        <input type="text" name="name" placeholder="Player name" required>
-        <button type="submit">Add to round robin</button>
+        <input type="text" name="name" placeholder="Name, or several: Ivy, Jules, ..." required
+               {% if focus == 'round_robin' %}autofocus{% endif %}>
+        <button type="submit" class="btn-ember">Add to round robin</button>
     </form>
 
     <ul class="player-list">
@@ -58,7 +60,7 @@
         <li>
             {{ p['name'] }}
             <form method="post" action="{{ url_for('organizer.remove_player', player_id=p['id']) }}" style="display:inline">
-                <button type="submit">Remove</button>
+                <button type="submit" class="btn-quiet">Remove</button>
             </form>
         </li>
         {% else %}
@@ -67,7 +69,7 @@
     </ul>
 
     <form method="post" action="{{ url_for('organizer.build_round_robin') }}">
-        <button type="submit" {% if rr_players|length < 2 %}disabled{% endif %}>Build round robin (everyone plays everyone)</button>
+        <button type="submit" class="btn-ember" {% if rr_players|length < 2 %}disabled{% endif %}>Build round robin (everyone plays everyone)</button>
     </form>
     {% include "partials/round_robin.html" with context %}
 </section>

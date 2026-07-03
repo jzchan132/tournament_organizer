@@ -552,6 +552,60 @@ main {
 .rr-match.tiebreaker {
     border-left-color: var(--red-hot);
 }
+input[type="text"], select {
+    min-height: 42px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-bottom: 2px solid var(--red);
+    color: var(--text);
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+input[type="text"]::placeholder {
+    color: var(--muted);
+}
+input[type="text"]:focus, select:focus {
+    outline: none;
+    border-color: var(--red-hot);
+    border-bottom-color: var(--red-hot);
+    box-shadow: 0 0 10px rgba(255, 46, 80, 0.3);
+}
+.btn-ember {
+    min-height: 42px;
+    padding: 0.5rem 1.1rem;
+    border-radius: 6px;
+    border: 1px solid var(--red-hot);
+    background: linear-gradient(135deg, var(--red-deep), var(--red));
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+}
+.btn-ember:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--red), var(--red-hot));
+}
+.btn-ember:disabled {
+    background: var(--surface-2);
+    border-color: var(--border);
+    color: var(--muted);
+    cursor: not-allowed;
+}
+.btn-quiet {
+    padding: 0.25rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.btn-quiet:hover {
+    border-color: var(--red);
+    color: var(--text);
+}
 
 @media (max-width: 600px) {
     main {

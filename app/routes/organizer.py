@@ -24,6 +24,7 @@ def index():
     state = db.execute("SELECT * FROM tournament_state WHERE id = 1").fetchone()
     return render_template(
         "organizer.html",
+        focus=request.args.get("focus"),
         bracket_players=[p for p in players if p["in_bracket"]],
         rr_players=[p for p in players if p["in_round_robin"]],
         state=state,
@@ -38,17 +39,23 @@ def index():
 
 @bp.route("/players/add", methods=["POST"])
 def add_player():
-    name = request.form.get("name", "").strip()
-    group_col = "in_round_robin" if request.form.get("group") == "round_robin" else "in_bracket"
-    if name:
+    group = request.form.get("group")
+    group_col = "in_round_robin" if group == "round_robin" else "in_bracket"
+    # Accepts a single name or a comma-separated list ("Alex, Bailey, Casey")
+    names = [n.strip() for n in request.form.get("name", "").split(",") if n.strip()]
+    if names:
         db = get_db()
-        cur = db.execute(
-            f"INSERT OR IGNORE INTO players (name, {group_col}) VALUES (?, 1)", (name,)
-        )
-        if cur.rowcount == 0:
-            flash(f"There's already a player named {name}.")
+        taken = []
+        for name in names:
+            cur = db.execute(
+                f"INSERT OR IGNORE INTO players (name, {group_col}) VALUES (?, 1)", (name,)
+            )
+            if cur.rowcount == 0:
+                taken.append(name)
         db.commit()
-    return redirect(url_for("organizer.index"))
+        if taken:
+            flash(f"Already taken: {', '.join(taken)}.")
+    return redirect(url_for("organizer.index", focus=group))
 
 
 @bp.route("/players/<int:player_id>/remove", methods=["POST"])
