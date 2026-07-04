@@ -1,9 +1,18 @@
 ROUND_NAMES = {1: "Quarterfinals", 2: "Semifinals", 3: "Final"}
-PHASE2_DURATION_SECONDS = 2 * 60 * 60
+DEFAULT_PHASE2_DURATION_SECONDS = 2 * 60 * 60
+
+
+def phase2_elapsed_seconds(db, state):
+    if not state["phase2_started_at"]:
+        return None
+    return db.execute(
+        "SELECT (julianday('now') - julianday(?)) * 86400 AS secs",
+        (state["phase2_started_at"],),
+    ).fetchone()["secs"]
 
 
 def check_phase2_timer(db):
-    """Lazily end Phase 2 if the 2-hour timer has expired.
+    """Lazily end Phase 2 if the timer has expired.
 
     Called on every /api/state poll rather than via a background scheduler,
     since a poll-time check is simplest for this scale of app.
@@ -11,11 +20,7 @@ def check_phase2_timer(db):
     state = db.execute("SELECT * FROM tournament_state WHERE id = 1").fetchone()
     if state["phase"] != "phase2" or not state["phase2_started_at"]:
         return state
-    elapsed = db.execute(
-        "SELECT (julianday('now') - julianday(?)) * 86400 AS secs",
-        (state["phase2_started_at"],),
-    ).fetchone()["secs"]
-    if elapsed >= PHASE2_DURATION_SECONDS:
+    if phase2_elapsed_seconds(db, state) >= state["phase2_duration_seconds"]:
         db.execute(
             "UPDATE tournament_state SET phase = 'complete', ended_reason = 'timer' WHERE id = 1"
         )
@@ -25,13 +30,10 @@ def check_phase2_timer(db):
 
 
 def phase2_seconds_remaining(db, state):
-    if not state["phase2_started_at"]:
+    elapsed = phase2_elapsed_seconds(db, state)
+    if elapsed is None:
         return None
-    elapsed = db.execute(
-        "SELECT (julianday('now') - julianday(?)) * 86400 AS secs",
-        (state["phase2_started_at"],),
-    ).fetchone()["secs"]
-    return max(0, PHASE2_DURATION_SECONDS - elapsed)
+    return max(0, state["phase2_duration_seconds"] - elapsed)
 
 
 def get_players(db):

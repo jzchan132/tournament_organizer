@@ -11,6 +11,8 @@ from app.queries import (
     get_players,
     get_round_robin_matches,
     get_round_robin_standings,
+    phase2_elapsed_seconds,
+    phase2_seconds_remaining,
     round_robin_champion,
 )
 
@@ -22,6 +24,7 @@ def index():
     db = get_db()
     players = get_players(db)
     state = db.execute("SELECT * FROM tournament_state WHERE id = 1").fetchone()
+    remaining = phase2_seconds_remaining(db, state)
     return render_template(
         "organizer.html",
         focus=request.args.get("focus"),
@@ -34,6 +37,8 @@ def index():
         rr_standings=get_round_robin_standings(db),
         bracket_champ=bracket_champion(db),
         rr_champ=round_robin_champion(db),
+        duration_minutes=state["phase2_duration_seconds"] // 60,
+        remaining_minutes=None if remaining is None else int(remaining // 60),
     )
 
 
@@ -78,6 +83,94 @@ def _phase_is_setup(db):
         db.execute("SELECT phase FROM tournament_state WHERE id = 1").fetchone()["phase"]
         == "setup"
     )
+
+
+MAX_TIMER_MINUTES = 24 * 60
+
+
+def _timer_minutes(field="minutes", default=None):
+    minutes = request.form.get(field, type=int)
+    if minutes is None:
+        minutes = default
+    if minutes is None or not (1 <= minutes <= MAX_TIMER_MINUTES):
+        return None
+    return minutes
+
+
+def _revive_if_timer_ended(db):
+    """Adding/setting time can bring back a tournament the clock ended.
+
+    Only applies to timer endings -- a queue-exhausted ending is a rules
+    outcome and stays final.
+    """
+    state = db.execute("SELECT * FROM tournament_state WHERE id = 1").fetchone()
+    if state["phase"] == "complete" and state["ended_reason"] == "timer":
+        remaining = phase2_seconds_remaining(db, state)
+        if remaining and remaining > 0:
+            db.execute(
+                "UPDATE tournament_state SET phase = 'phase2', ended_reason = NULL "
+                "WHERE id = 1"
+            )
+            flash("The clock has time again -- Phase 2 is back on!")
+
+
+@bp.route("/timer/duration", methods=["POST"])
+def timer_duration():
+    minutes = _timer_minutes()
+    if minutes is None:
+        flash(f"Enter a length between 1 and {MAX_TIMER_MINUTES} minutes.")
+        return redirect(url_for("organizer.index"))
+    db = get_db()
+    db.execute(
+        "UPDATE tournament_state SET phase2_duration_seconds = ? WHERE id = 1",
+        (minutes * 60,),
+    )
+    _revive_if_timer_ended(db)
+    db.commit()
+    flash(f"Phase 2 length set to {minutes} minutes.")
+    return redirect(url_for("organizer.index"))
+
+
+@bp.route("/timer/add", methods=["POST"])
+def timer_add():
+    minutes = _timer_minutes(default=30)
+    if minutes is None:
+        flash(f"Enter between 1 and {MAX_TIMER_MINUTES} minutes to add.")
+        return redirect(url_for("organizer.index"))
+    db = get_db()
+    db.execute(
+        "UPDATE tournament_state SET phase2_duration_seconds = "
+        "MIN(phase2_duration_seconds + ?, ?) WHERE id = 1",
+        (minutes * 60, MAX_TIMER_MINUTES * 60 * 2),
+    )
+    _revive_if_timer_ended(db)
+    db.commit()
+    flash(f"Added {minutes} minutes to the Phase 2 timer.")
+    return redirect(url_for("organizer.index"))
+
+
+@bp.route("/timer/set", methods=["POST"])
+def timer_set():
+    minutes = _timer_minutes()
+    if minutes is None:
+        flash(f"Enter a time between 1 and {MAX_TIMER_MINUTES} minutes.")
+        return redirect(url_for("organizer.index"))
+    db = get_db()
+    state = db.execute("SELECT * FROM tournament_state WHERE id = 1").fetchone()
+    elapsed = phase2_elapsed_seconds(db, state)
+    if elapsed is None:
+        # Phase 2 hasn't started; setting the remaining time = setting the length.
+        new_duration = minutes * 60
+    else:
+        new_duration = int(elapsed) + minutes * 60
+    db.execute(
+        "UPDATE tournament_state SET phase2_duration_seconds = ? WHERE id = 1",
+        (new_duration,),
+    )
+    _revive_if_timer_ended(db)
+    db.commit()
+    flash(f"Phase 2 timer set to {minutes} minutes remaining.")
+    return redirect(url_for("organizer.index"))
 
 
 @bp.route("/bracket/seed", methods=["POST"])

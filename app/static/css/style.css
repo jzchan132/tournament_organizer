@@ -613,6 +613,43 @@ input[type="text"]:focus, select:focus {
     border-color: var(--red);
     color: var(--text);
 }
+.timer-controls {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+.timer-controls form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+.timer-controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.timer-controls input[type="number"] {
+    width: 7rem;
+    min-height: 42px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-bottom: 2px solid var(--red);
+    color: var(--text);
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+.timer-controls input[type="number"]:focus {
+    outline: none;
+    border-color: var(--red-hot);
+    border-bottom-color: var(--red-hot);
+    box-shadow: 0 0 10px rgba(255, 46, 80, 0.3);
+}
 
 @media (max-width: 600px) {
     main {
