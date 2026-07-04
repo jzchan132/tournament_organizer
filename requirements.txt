@@ -1,4 +1,5 @@
 flask
 qrcode[pil]
+pywebview==6.2.1
 pytest
 pyinstaller
