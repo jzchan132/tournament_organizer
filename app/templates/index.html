@@ -3,6 +3,7 @@
 {% block content %}
 <div class="landing">
     <h1>Tekken Tournament Organizer</h1>
+    <p class="hint version-line">{{ app_version }}</p>
 
     {% with messages = get_flashed_messages() %}
     {% if messages %}

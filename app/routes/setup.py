@@ -12,7 +12,7 @@ from flask import (
     url_for,
 )
 
-from app.config import PORT
+from app.config import APP_VERSION, PORT
 from app.db import get_db
 from app.network import get_lan_ip, make_qr_png_bytes
 from app.persistence import delete_save, list_saves, load_save, new_tournament, save_current
@@ -41,6 +41,7 @@ def landing():
         phase=state["phase"],
         player_count=player_count,
         saves=list_saves(),
+        app_version=APP_VERSION,
     )
 
 

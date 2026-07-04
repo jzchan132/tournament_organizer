@@ -8,3 +8,4 @@ dist/
 *.spec.bak
 .pytest_cache/
 .claude/
+version.txt

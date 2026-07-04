@@ -28,6 +28,16 @@ def get_data_dir():
     return data_dir
 
 
+def get_app_version():
+    """Release tag stamped into the build by CI (version.txt); 'dev' otherwise."""
+    try:
+        with open(os.path.join(get_resource_dir(), "version.txt"), encoding="utf-8") as f:
+            return f.read().strip() or "dev"
+    except OSError:
+        return "dev"
+
+
 DB_PATH = os.path.join(get_data_dir(), "tournament.db")
 SCHEMA_PATH = os.path.join(get_resource_dir(), "schema.sql")
 PORT = 5000
+APP_VERSION = get_app_version()

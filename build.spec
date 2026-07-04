@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
 
 a = Analysis(
     ['run.py'],
@@ -8,7 +9,7 @@ a = Analysis(
         ('app/templates', 'templates'),
         ('app/static', 'static'),
         ('app/schema.sql', '.'),
-    ],
+    ] + ([('version.txt', '.')] if os.path.exists('version.txt') else []),
     hiddenimports=[
         'PIL._tkinter_finder',
         'clr',

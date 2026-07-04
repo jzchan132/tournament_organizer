@@ -24,23 +24,26 @@ jobs:
       - name: Run tests
         run: pytest tests/
 
+      - name: Stamp version into the build
+        run: '"${{ github.ref_name }}" | Set-Content -NoNewline version.txt'
+
       - name: Build exe
         run: pyinstaller build.spec --noconfirm
 
       - name: Zip the app
-        run: Compress-Archive -Path dist/TekkenTournamentOrganizer -DestinationPath TekkenTournamentOrganizer-win64.zip
+        run: Compress-Archive -Path dist/TekkenTournamentOrganizer -DestinationPath TekkenTournamentOrganizer-${{ github.ref_name }}-win64.zip
 
       - name: Create release with the zip attached
         uses: softprops/action-gh-release@v2
         with:
-          files: TekkenTournamentOrganizer-win64.zip
+          files: TekkenTournamentOrganizer-${{ github.ref_name }}-win64.zip
           generate_release_notes: true
           body: |
             Windows app for running the Tekken tournament -- no Python or any other install needed.
 
             ## How to run
 
-            1. Download **TekkenTournamentOrganizer-win64.zip** below
+            1. Download **TekkenTournamentOrganizer-${{ github.ref_name }}-win64.zip** below
             2. Extract it anywhere (e.g. the Desktop)
             3. Open the extracted folder and double-click **TekkenTournamentOrganizer.exe**
             4. When Windows Defender asks about network access, check **both Private and Public networks**, then click **Allow** (Public matters -- hotspot networks count as Public, and session discovery won't work without it)
