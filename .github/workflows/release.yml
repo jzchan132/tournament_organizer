@@ -43,7 +43,11 @@ jobs:
             1. Download **TekkenTournamentOrganizer-win64.zip** below
             2. Extract it anywhere (e.g. the Desktop)
             3. Open the extracted folder and double-click **TekkenTournamentOrganizer.exe**
-            4. If Windows Defender asks about network access, click **Allow**
-            5. A browser opens with the QR code page -- players scan it to join from their phones
+            4. When Windows Defender asks about network access, check **both Private and Public networks**, then click **Allow** (Public matters -- hotspot networks count as Public, and session discovery won't work without it)
+            5. The app opens in its own window with the QR code page -- players scan it to join from their phones
 
-            Turn on **Windows Mobile Hotspot** on the host laptop and have everyone join that WiFi.
+            Turn on **Windows Mobile Hotspot** on the host laptop and have everyone join that WiFi. (Venue WiFi with client isolation blocks devices from seeing each other -- the hotspot avoids that.)
+
+            ## Second laptop
+
+            Run the same app on the second laptop while on the same network: the first laptop's session appears under "Sessions on this network" -- click **Join** to use it as a match station. To return to hosting your own session afterwards, just relaunch the app.
