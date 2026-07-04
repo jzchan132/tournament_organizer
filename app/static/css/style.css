@@ -62,6 +62,13 @@ main {
 .ip-line {
     font-size: 1.2rem;
 }
+.hosting-line {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.85rem;
+    color: var(--red-hot);
+    font-weight: 700;
+}
 .landing {
     text-align: center;
     max-width: 460px;
@@ -298,6 +305,17 @@ main {
     background: rgba(245, 197, 66, 0.1);
     border-color: var(--gold);
     color: var(--gold);
+    font-style: italic;
+    font-size: 1.05rem;
+}
+.warning-banner.intro {
+    background: rgba(255, 46, 80, 0.08);
+    border-color: var(--red-hot);
+    color: var(--text);
+    font-style: italic;
+}
+.warning-banner.intro strong {
+    color: var(--red-hot);
 }
 .king-status {
     display: flex;
@@ -540,6 +558,97 @@ main {
 }
 .rr-match.tiebreaker {
     border-left-color: var(--red-hot);
+}
+input[type="text"], select {
+    min-height: 42px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-bottom: 2px solid var(--red);
+    color: var(--text);
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+input[type="text"]::placeholder {
+    color: var(--muted);
+}
+input[type="text"]:focus, select:focus {
+    outline: none;
+    border-color: var(--red-hot);
+    border-bottom-color: var(--red-hot);
+    box-shadow: 0 0 10px rgba(255, 46, 80, 0.3);
+}
+.btn-ember {
+    min-height: 42px;
+    padding: 0.5rem 1.1rem;
+    border-radius: 6px;
+    border: 1px solid var(--red-hot);
+    background: linear-gradient(135deg, var(--red-deep), var(--red));
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+}
+.btn-ember:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--red), var(--red-hot));
+}
+.btn-ember:disabled {
+    background: var(--surface-2);
+    border-color: var(--border);
+    color: var(--muted);
+    cursor: not-allowed;
+}
+.btn-quiet {
+    padding: 0.25rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.btn-quiet:hover {
+    border-color: var(--red);
+    color: var(--text);
+}
+.timer-controls {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+.timer-controls form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+.timer-controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.timer-controls input[type="number"] {
+    width: 7rem;
+    min-height: 42px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-bottom: 2px solid var(--red);
+    color: var(--text);
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+.timer-controls input[type="number"]:focus {
+    outline: none;
+    border-color: var(--red-hot);
+    border-bottom-color: var(--red-hot);
+    box-shadow: 0 0 10px rgba(255, 46, 80, 0.3);
 }
 
 @media (max-width: 600px) {

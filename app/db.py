@@ -42,6 +42,12 @@ def _migrate(conn):
             "ALTER TABLE round_robin_matches "
             "ADD COLUMN is_tiebreaker INTEGER NOT NULL DEFAULT 0"
         )
+    state_cols = [r[1] for r in conn.execute("PRAGMA table_info(tournament_state)")]
+    if "phase2_duration_seconds" not in state_cols:
+        conn.execute(
+            "ALTER TABLE tournament_state "
+            "ADD COLUMN phase2_duration_seconds INTEGER NOT NULL DEFAULT 7200"
+        )
 
 
 def register(app):

@@ -31,6 +31,31 @@ def test_remove_unreferenced_player_works(client):
     conn.close()
 
 
+def test_comma_separated_names_add_multiple_players(client):
+    c, db_path = client
+    c.post(
+        "/organizer/players/add",
+        data={"name": " Alex, Bailey,,Casey , ", "group": "bracket"},
+    )
+    conn = sqlite3.connect(db_path)
+    rows = conn.execute(
+        "SELECT name, in_bracket FROM players ORDER BY name"
+    ).fetchall()
+    conn.close()
+    assert rows == [("Alex", 1), ("Bailey", 1), ("Casey", 1)]
+
+    # duplicates across a list are reported, not crashed on
+    resp = c.post(
+        "/organizer/players/add",
+        data={"name": "Bailey, Drew", "group": "round_robin"},
+        follow_redirects=True,
+    )
+    assert b"Already taken: Bailey" in resp.data
+    conn = sqlite3.connect(db_path)
+    assert conn.execute("SELECT COUNT(*) FROM players").fetchone()[0] == 4
+    conn.close()
+
+
 def test_remove_seeded_player_flashes_instead_of_crashing(client):
     c, db_path = client
     for i in range(1, 9):

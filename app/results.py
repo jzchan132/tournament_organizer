@@ -28,6 +28,8 @@ def record_bracket_result(db, match_id, winner_id):
         return "Match not found."
     if match["winner_id"]:
         return "This match already has a result. Undo it first if it's wrong."
+    if match["player1_id"] is None or match["player2_id"] is None:
+        return "Both players must advance to this match before a result can be recorded."
     if not winner_id or winner_id not in (match["player1_id"], match["player2_id"]):
         return "Invalid winner for this match."
 
@@ -65,13 +67,17 @@ def undo_bracket_result(db, match_id):
 
 
 def _ensure_rr_tiebreaker(db):
-    """Create the next tiebreaker match if regular play just ended in a tie."""
-    needed = resolve_rr_champion(db)["needed_tiebreaker"]
-    if needed:
+    """Create the next round of tiebreaker matches if play just ended in a tie.
+
+    Every tied pair plays; if that round ends tied again (a win cycle),
+    the next call generates another round -- this repeats until someone
+    stands alone at the top of the standings.
+    """
+    for pair in resolve_rr_champion(db)["needed_tiebreakers"]:
         db.execute(
             "INSERT INTO round_robin_matches (player1_id, player2_id, is_tiebreaker) "
             "VALUES (?, ?, 1)",
-            needed,
+            pair,
         )
 
 

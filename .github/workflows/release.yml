@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller pytest
+
+      - name: Run tests
+        run: pytest tests/
+
+      - name: Build exe
+        run: pyinstaller build.spec --noconfirm
+
+      - name: Zip the app
+        run: Compress-Archive -Path dist/TekkenTournamentOrganizer -DestinationPath TekkenTournamentOrganizer-win64.zip
+
+      - name: Create release with the zip attached
+        uses: softprops/action-gh-release@v2
+        with:
+          files: TekkenTournamentOrganizer-win64.zip
+          generate_release_notes: true
+          body: |
+            Windows app for running the Tekken tournament -- no Python or any other install needed.
+
+            ## How to run
+
+            1. Download **TekkenTournamentOrganizer-win64.zip** below
+            2. Extract it anywhere (e.g. the Desktop)
+            3. Open the extracted folder and double-click **TekkenTournamentOrganizer.exe**
+            4. When Windows Defender asks about network access, check **both Private and Public networks**, then click **Allow** (Public matters -- hotspot networks count as Public, and session discovery won't work without it)
+            5. The app opens in its own window with the QR code page -- players scan it to join from their phones
+
+            Turn on **Windows Mobile Hotspot** on the host laptop and have everyone join that WiFi. (Venue WiFi with client isolation blocks devices from seeing each other -- the hotspot avoids that.)
+
+            ## Second laptop
+
+            Run the same app on the second laptop while on the same network: the first laptop's session appears under "Sessions on this network" -- click **Join** to use it as a match station. To return to hosting your own session afterwards, just relaunch the app.

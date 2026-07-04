@@ -153,10 +153,15 @@ def queue_join():
         return jsonify({"error": "Phase 2 is not active."}), 400
     if not player_id:
         return jsonify({"error": "Missing player."}), 400
+    if not db.execute("SELECT 1 FROM players WHERE id = ?", (player_id,)).fetchone():
+        return jsonify({"error": "Unknown player."}), 400
     if player_id in (state["big_king_id"], state["small_king_id"]):
-        return jsonify({"error": "Kings can't join the challenge queue."}), 400
+        return jsonify({"error": "Reigning champions can't join the challenge queue."}), 400
     if has_challenged(db, player_id, state["small_king_id"]):
-        return jsonify({"error": "You've already challenged this Small King."}), 400
+        return (
+            jsonify({"error": "You've already challenged this Champion of the People."}),
+            400,
+        )
 
     already_queued = db.execute(
         "SELECT 1 FROM challenge_queue WHERE player_id = ? AND entry_type = 'challenger'",
@@ -185,13 +190,18 @@ def queue_join_rematch():
     if state["phase"] != "phase2":
         return jsonify({"error": "Phase 2 is not active."}), 400
     if player_id != state["small_king_id"]:
-        return jsonify({"error": "Only the current Small King can queue a rematch."}), 400
+        return (
+            jsonify(
+                {"error": "Only the Champion of the People can challenge the Champion of Champions."}
+            ),
+            400,
+        )
 
     already_queued = db.execute(
         "SELECT 1 FROM challenge_queue WHERE entry_type = 'rematch'"
     ).fetchone()
     if already_queued:
-        return jsonify({"error": "A rematch challenge is already queued."}), 400
+        return jsonify({"error": "A title match is already queued."}), 400
 
     next_pos = db.execute(
         "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM challenge_queue"
