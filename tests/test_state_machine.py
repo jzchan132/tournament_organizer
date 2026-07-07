@@ -1,11 +1,11 @@
 from app.state_machine import resolve_phase2_match
 
-BIG = 1  # big king player id
-SMALL = 2  # small king player id
+BIG = 1  # big champ player id (db keeps 'big_king' naming)
+SMALL = 2  # little champ player id
 CHALLENGER = 3
 
 
-def rematch(winner_id, consecutive_bk_wins=0, queue_empty_after_pop=True):
+def champ_challenge(winner_id, consecutive_bk_wins=0, queue_empty_after_pop=True):
     return resolve_phase2_match(
         big_king_id=BIG,
         small_king_id=SMALL,
@@ -29,69 +29,74 @@ def challenger_match(winner_id, consecutive_bk_wins=0):
     )
 
 
-def test_small_king_beats_big_king_swaps_titles():
-    result = rematch(winner_id=SMALL, consecutive_bk_wins=1)
+def test_little_champ_beats_big_champ_swaps_titles():
+    result = champ_challenge(winner_id=SMALL, consecutive_bk_wins=1)
 
     assert result["match_type"] == "bk_vs_sk"
     assert result["big_king_id"] == SMALL
     assert result["small_king_id"] == BIG
     assert result["title_changed"] is True
+    # voiding happens against whoever holds Little Champ AFTER the challenge
     assert result["purge_against_small_king_id"] == BIG
     assert result["consecutive_bk_wins"] == 0
-    assert result["queue_empty_warning"] is False
-    assert result["record_history_pair"] is None  # BK-vs-SK matches are exempt
-    assert result["requeue_rematch_for"] is None
+    assert result["record_history_pair"] is None  # champ challenges are exempt
+    assert result["add_champ_challenges"] is False  # swap doesn't auto-queue
     assert result["phase_complete"] is False
 
 
-def test_big_king_defends_requeues_rematch_and_streak_increments():
-    result = rematch(winner_id=BIG, consecutive_bk_wins=0, queue_empty_after_pop=False)
+def test_big_champ_defends_increments_streak_and_purges_no_requeue():
+    result = champ_challenge(winner_id=BIG, consecutive_bk_wins=0, queue_empty_after_pop=False)
 
-    assert result["match_type"] == "bk_vs_sk"
     assert result["title_changed"] is False
     assert result["big_king_id"] == BIG
     assert result["small_king_id"] == SMALL
     assert result["consecutive_bk_wins"] == 1
-    assert result["requeue_rematch_for"] == SMALL
-    # queue had other people waiting, so no warning and no end condition
-    assert result["queue_empty_warning"] is False
+    # Little Champ kept the title -- purge those who already challenged them
+    assert result["purge_against_small_king_id"] == SMALL
+    # no automatic re-queue anymore
+    assert result["add_champ_challenges"] is False
     assert result["phase_complete"] is False
 
 
-def test_big_king_defends_with_empty_queue_sets_warning_but_not_end_condition_on_first_win():
-    result = rematch(winner_id=BIG, consecutive_bk_wins=0, queue_empty_after_pop=True)
+def test_first_defense_with_empty_queue_does_not_end():
+    result = champ_challenge(winner_id=BIG, consecutive_bk_wins=0, queue_empty_after_pop=True)
 
     assert result["consecutive_bk_wins"] == 1
-    assert result["queue_empty_warning"] is True
     assert result["phase_complete"] is False
     assert result["ended_reason"] is None
 
 
-def test_big_king_defends_twice_in_a_row_with_empty_queue_ends_tournament():
-    # second consecutive defense, streak already at 1 coming in
-    result = rematch(winner_id=BIG, consecutive_bk_wins=1, queue_empty_after_pop=True)
+def test_second_consecutive_defense_with_empty_queue_ends_tournament():
+    result = champ_challenge(winner_id=BIG, consecutive_bk_wins=1, queue_empty_after_pop=True)
 
     assert result["consecutive_bk_wins"] == 2
-    assert result["queue_empty_warning"] is True
     assert result["phase_complete"] is True
     assert result["ended_reason"] == "queue_exhausted"
 
 
-def test_challenger_beats_small_king_swaps_up():
+def test_second_consecutive_defense_with_people_waiting_does_not_end():
+    result = champ_challenge(winner_id=BIG, consecutive_bk_wins=1, queue_empty_after_pop=False)
+
+    assert result["consecutive_bk_wins"] == 2
+    assert result["phase_complete"] is False
+
+
+def test_challenger_takes_title_queues_champ_challenges_without_purging():
     result = challenger_match(winner_id=CHALLENGER, consecutive_bk_wins=1)
 
     assert result["match_type"] == "challenger_vs_sk"
     assert result["title_changed"] is True
     assert result["small_king_id"] == CHALLENGER
     assert result["big_king_id"] == BIG  # unaffected
-    assert result["purge_against_small_king_id"] == CHALLENGER
+    # purge is deferred until the champ challenge resolves
+    assert result["purge_against_small_king_id"] is None
+    assert result["add_champ_challenges"] is True
     assert result["record_history_pair"] == (CHALLENGER, SMALL)
-    assert result["consecutive_bk_wins"] == 0  # any challenger match resets the BK streak
-    assert result["requeue_rematch_for"] is None
+    assert result["consecutive_bk_wins"] == 0  # challenger match resets the streak
     assert result["phase_complete"] is False
 
 
-def test_small_king_beats_challenger_records_history_no_title_change():
+def test_little_champ_beats_challenger_records_history_no_title_change():
     result = challenger_match(winner_id=SMALL, consecutive_bk_wins=1)
 
     assert result["match_type"] == "challenger_vs_sk"
@@ -101,3 +106,4 @@ def test_small_king_beats_challenger_records_history_no_title_change():
     assert result["record_history_pair"] == (CHALLENGER, SMALL)
     assert result["consecutive_bk_wins"] == 0
     assert result["purge_against_small_king_id"] is None
+    assert result["add_champ_challenges"] is False

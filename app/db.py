@@ -46,7 +46,7 @@ def _migrate(conn):
     if "phase2_duration_seconds" not in state_cols:
         conn.execute(
             "ALTER TABLE tournament_state "
-            "ADD COLUMN phase2_duration_seconds INTEGER NOT NULL DEFAULT 7200"
+            "ADD COLUMN phase2_duration_seconds INTEGER NOT NULL DEFAULT 3600"
         )
 
 

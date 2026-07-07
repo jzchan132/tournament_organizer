@@ -150,18 +150,15 @@ def queue_join():
     state = check_phase2_timer(db)
 
     if state["phase"] != "phase2":
-        return jsonify({"error": "Phase 2 is not active."}), 400
+        return jsonify({"error": "The Gauntlet is not active."}), 400
     if not player_id:
         return jsonify({"error": "Missing player."}), 400
     if not db.execute("SELECT 1 FROM players WHERE id = ?", (player_id,)).fetchone():
         return jsonify({"error": "Unknown player."}), 400
     if player_id in (state["big_king_id"], state["small_king_id"]):
-        return jsonify({"error": "Reigning champions can't join the challenge queue."}), 400
+        return jsonify({"error": "Reigning champs can't join the challenge queue."}), 400
     if has_challenged(db, player_id, state["small_king_id"]):
-        return (
-            jsonify({"error": "You've already challenged this Champion of the People."}),
-            400,
-        )
+        return jsonify({"error": "You've already challenged this Little Champ."}), 400
 
     already_queued = db.execute(
         "SELECT 1 FROM challenge_queue WHERE player_id = ? AND entry_type = 'challenger'",
@@ -177,38 +174,7 @@ def queue_join():
         "INSERT INTO challenge_queue (position, player_id, entry_type) VALUES (?, ?, 'challenger')",
         (next_pos, player_id),
     )
-    db.commit()
-    return jsonify({"ok": True})
-
-
-@bp.route("/api/queue/join_rematch", methods=["POST"])
-def queue_join_rematch():
-    player_id = request.form.get("player_id", type=int)
-    db = get_db()
-    state = check_phase2_timer(db)
-
-    if state["phase"] != "phase2":
-        return jsonify({"error": "Phase 2 is not active."}), 400
-    if player_id != state["small_king_id"]:
-        return (
-            jsonify(
-                {"error": "Only the Champion of the People can challenge the Champion of Champions."}
-            ),
-            400,
-        )
-
-    already_queued = db.execute(
-        "SELECT 1 FROM challenge_queue WHERE entry_type = 'rematch'"
-    ).fetchone()
-    if already_queued:
-        return jsonify({"error": "A title match is already queued."}), 400
-
-    next_pos = db.execute(
-        "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM challenge_queue"
-    ).fetchone()["p"]
-    db.execute(
-        "INSERT INTO challenge_queue (position, player_id, entry_type) VALUES (?, ?, 'rematch')",
-        (next_pos, player_id),
-    )
+    # A fresh challenger means the next Big Champ win can't end the Gauntlet.
+    db.execute("UPDATE tournament_state SET queue_empty_warning = 0 WHERE id = 1")
     db.commit()
     return jsonify({"ok": True})

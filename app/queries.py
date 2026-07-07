@@ -1,5 +1,5 @@
 ROUND_NAMES = {1: "Quarterfinals", 2: "Semifinals", 3: "Final"}
-DEFAULT_PHASE2_DURATION_SECONDS = 2 * 60 * 60
+DEFAULT_PHASE2_DURATION_SECONDS = 60 * 60
 
 
 def phase2_elapsed_seconds(db, state):

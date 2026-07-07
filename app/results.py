@@ -46,7 +46,7 @@ def record_bracket_result(db, match_id, winner_id):
 
 def undo_bracket_result(db, match_id):
     if _phase(db) != "setup":
-        return "Phase 2 has already started -- Phase 1 results are locked."
+        return "The Gauntlet has already started -- Phase 1 results are locked."
     match = db.execute("SELECT * FROM bracket_matches WHERE id = ?", (match_id,)).fetchone()
     if not match or not match["winner_id"]:
         return "No result to undo."
@@ -101,7 +101,7 @@ def record_round_robin_result(db, match_id, winner_id):
 
 def undo_round_robin_result(db, match_id):
     if _phase(db) != "setup":
-        return "Phase 2 has already started -- Phase 1 results are locked."
+        return "The Gauntlet has already started -- Phase 1 results are locked."
     match = db.execute("SELECT * FROM round_robin_matches WHERE id = ?", (match_id,)).fetchone()
     if not match or not match["winner_id"]:
         return "No result to undo."
@@ -116,11 +116,11 @@ def undo_round_robin_result(db, match_id):
 
 def start_phase2(db):
     if _phase(db) != "setup":
-        return "Phase 2 has already started."
+        return "The Gauntlet has already started."
     champ = bracket_champion(db)
     rr_champ = round_robin_champion(db)
     if not champ or not rr_champ:
-        return "Both the bracket and round robin must be complete before starting Phase 2."
+        return "Both the bracket and round robin must be complete before starting the Gauntlet."
     db.execute(
         "UPDATE tournament_state SET phase = 'phase2', big_king_id = ?, small_king_id = ?, "
         "phase2_started_at = datetime('now') WHERE id = 1",
@@ -196,7 +196,7 @@ def undo_phase2_match(db):
 def record_phase2_result(db, winner_id):
     state = db.execute("SELECT * FROM tournament_state WHERE id = 1").fetchone()
     if state["phase"] != "phase2":
-        return "Phase 2 is not active."
+        return "The Gauntlet is not active."
 
     front = queue_front(db)
     if not front:
@@ -246,29 +246,45 @@ def record_phase2_result(db, winner_id):
         )
 
     if outcome["purge_against_small_king_id"] is not None:
-        target = outcome["purge_against_small_king_id"]
+        # Deferred voiding: only after a champ challenge resolves do we know
+        # who challengers will actually face, so purge against that person.
         db.execute(
             "DELETE FROM challenge_queue WHERE entry_type = 'challenger' AND player_id IN "
             "(SELECT challenger_id FROM challenger_history WHERE small_king_id = ?)",
-            (target,),
-        )
-        # A leftover rematch entry belonged to whoever was small king when it was
-        # queued -- once the title has moved to someone else, that entry no longer
-        # represents "the current small king's challenge" and is no longer valid.
-        db.execute(
-            "DELETE FROM challenge_queue WHERE entry_type = 'rematch' AND player_id != ?",
-            (target,),
+            (outcome["purge_against_small_king_id"],),
         )
         renumber_queue(db)
 
-    if outcome["requeue_rematch_for"] is not None:
-        next_pos = db.execute(
-            "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM challenge_queue"
-        ).fetchone()["p"]
+    if outcome["add_champ_challenges"]:
+        # A new Little Champ rose from the queue: champ challenges go at the
+        # top (immediate title shot) and the bottom (another after the queue).
+        # Existing champ-challenge entries are replaced -- at most this pair
+        # is ever pending. Entries are role-based; player_id is advisory.
+        db.execute("DELETE FROM challenge_queue WHERE entry_type = 'rematch'")
+        bounds = db.execute(
+            "SELECT COALESCE(MIN(position), 1) AS lo, COALESCE(MAX(position), -1) AS hi "
+            "FROM challenge_queue"
+        ).fetchone()
         db.execute(
             "INSERT INTO challenge_queue (position, player_id, entry_type) VALUES (?, ?, 'rematch')",
-            (next_pos, outcome["requeue_rematch_for"]),
+            (bounds["lo"] - 1, outcome["small_king_id"]),
         )
+        db.execute(
+            "INSERT INTO challenge_queue (position, player_id, entry_type) VALUES (?, ?, 'rematch')",
+            (bounds["hi"] + 1, outcome["small_king_id"]),
+        )
+        renumber_queue(db)
+
+    # Warning flag: the next Big Champ victory could end it -- true once a
+    # defense streak has started and no regular challengers remain queued.
+    challengers_left = db.execute(
+        "SELECT COUNT(*) AS c FROM challenge_queue WHERE entry_type = 'challenger'"
+    ).fetchone()["c"]
+    warning = (
+        not outcome["phase_complete"]
+        and outcome["consecutive_bk_wins"] >= 1
+        and challengers_left == 0
+    )
 
     new_phase = "complete" if outcome["phase_complete"] else state["phase"]
     db.execute(
@@ -278,7 +294,7 @@ def record_phase2_result(db, winner_id):
             outcome["big_king_id"],
             outcome["small_king_id"],
             outcome["consecutive_bk_wins"],
-            1 if outcome["queue_empty_warning"] else 0,
+            1 if warning else 0,
             new_phase,
             outcome["ended_reason"],
         ),

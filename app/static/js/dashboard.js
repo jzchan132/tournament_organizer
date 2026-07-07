@@ -6,8 +6,8 @@ let lastRenderSig = null;
 let timerEndsAt = null; // ms epoch when the Phase 2 clock hits zero; ticks client-side
 let lastPhase = null; // for announcing phase transitions
 
-const BIG_TITLE = "Champion of Champions";
-const SMALL_TITLE = "Champion of the People";
+const BIG_TITLE = "Big Champ";
+const SMALL_TITLE = "Little Champ";
 
 function playChime() {
     try {
@@ -100,7 +100,7 @@ function checkForPhaseChange(state) {
         const sk = state.phase2.small_king.name;
         if (state.phase === "phase2") {
             playChime();
-            showToast(`PHASE 2 BEGINS! ${bk} enters as ${BIG_TITLE} — ${sk} rises as ${SMALL_TITLE}!`);
+            showToast(`THE GAUNTLET BEGINS! ${bk} enters as ${BIG_TITLE} — ${sk} rises as ${SMALL_TITLE}!`);
         } else if (state.phase === "complete") {
             playChime();
             showToast(endingAnnouncement(state));
@@ -179,13 +179,50 @@ function renderRoundRobin(state) {
     return html;
 }
 
+function phase1OnDeck(state) {
+    // Bracket: the undecided match after the current one, in play order
+    // (may still show TBD slots waiting on earlier results).
+    const undecided = [];
+    Object.keys(state.bracket.rounds)
+        .sort()
+        .forEach((rn) => {
+            state.bracket.rounds[rn].forEach((m) => {
+                if (!m.winner_id) undecided.push(m);
+            });
+        });
+    const bCur = state.bracket.next_match;
+    let bNext = null;
+    if (bCur) {
+        const idx = undecided.findIndex((m) => m.id === bCur.id);
+        bNext = idx >= 0 ? undecided[idx + 1] : null;
+    }
+
+    const rrUndecided = state.round_robin.matches.filter((m) => !m.winner_id);
+    const rNext = rrUndecided[1];
+
+    let cards = "";
+    if (bNext) {
+        cards += onDeckCard(
+            "Next on — Bracket",
+            `${bNext.player1_name || "TBD"} vs ${bNext.player2_name || "TBD"}`
+        );
+    }
+    if (rNext) {
+        cards += onDeckCard(
+            rNext.is_tiebreaker ? "Next on — Round Robin (tiebreaker)" : "Next on — Round Robin",
+            `${rNext.player1_name} vs ${rNext.player2_name}`
+        );
+    }
+    return cards ? `<div class="ondeck-row">${cards}</div>` : "";
+}
+
 function renderStartPhase2(state) {
     if (state.phase !== "setup") return "";
     if (!state.bracket.champion || !state.round_robin.champion) return "";
     return `<div class="phase2-start">
         <p>Phase 1 is complete! Bracket champion: <strong>${state.bracket.champion.name}</strong>,
         round robin champion: <strong>${state.round_robin.champion.name}</strong>.</p>
-        <button data-action="start-phase2">Start Phase 2 (King of the Hill)</button>
+        <button data-action="start-phase2">Start the Gauntlet</button>
     </div>`;
 }
 
@@ -198,10 +235,14 @@ function formatDuration(seconds) {
     return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
+function onDeckCard(label, text) {
+    return `<div class="ondeck-card"><span class="ondeck-label">${label}</span><span class="who">${text}</span></div>`;
+}
+
 function phase2HeroCard(state) {
     const p2 = state.phase2;
     if (!p2.next_match) {
-        return '<div class="hero-card empty"><div class="hero-label">Next Challenge</div><div class="hero-players">Queue is empty</div></div>';
+        return '<div class="hero-card empty"><div class="hero-label">Current Match</div><div class="hero-players">Queue is empty</div></div>';
     }
     const isRematch = p2.next_match.entry_type === "rematch";
     const challenger = isRematch
@@ -210,7 +251,7 @@ function phase2HeroCard(state) {
     const defender = isRematch
         ? { id: p2.big_king.id, name: p2.big_king.name }
         : { id: p2.small_king.id, name: p2.small_king.name };
-    const label = isRematch ? `TITLE MATCH: ${SMALL_TITLE} challenges the ${BIG_TITLE}` : "Next Challenge";
+    const label = isRematch ? `CURRENT MATCH — CHAMP CHALLENGE` : "Current Match";
     let html = `<div class="hero-card">
         <div class="hero-label">${label}</div>
         <div class="hero-players">${challenger.name} <span class="vs">vs</span> ${defender.name}</div>`;
@@ -224,17 +265,29 @@ function phase2HeroCard(state) {
     return html;
 }
 
+function phase2OnDeck(state) {
+    // Second entry in the queue. Uses titles rather than names for champ
+    // challenges, since the current match may change who holds them.
+    const next = state.phase2.queue[1];
+    if (!next) return "";
+    const text = next.entry_type === "rematch"
+        ? `Champ Challenge — ${SMALL_TITLE} vs ${BIG_TITLE}`
+        : `${next.player_name} challenges the ${SMALL_TITLE}`;
+    return `<div class="ondeck-row">${onDeckCard("Next on", text)}</div>`;
+}
+
 function renderPhase2(state) {
     const p2 = state.phase2;
     let html = '<div class="hero-cards">';
     html += phase2HeroCard(state);
     html += "</div>";
+    html += phase2OnDeck(state);
 
     if (state.phase === "phase2" && p2.match_log.length === 0) {
-        html += `<div class="warning-banner intro">PHASE 2 BEGINS! Bracket champion <strong>${p2.big_king.name}</strong> enters as the ${BIG_TITLE} — round robin champion <strong>${p2.small_king.name}</strong> rises as the ${SMALL_TITLE}. Who dares to challenge?</div>`;
+        html += `<div class="warning-banner intro">THE GAUNTLET BEGINS! Bracket champion <strong>${p2.big_king.name}</strong> enters as the ${BIG_TITLE} — round robin champion <strong>${p2.small_king.name}</strong> rises as the ${SMALL_TITLE}. Who dares to challenge?</div>`;
     }
     if (p2.queue_empty_warning && state.phase === "phase2") {
-        html += `<div class="warning-banner">The ${BIG_TITLE} just defended an empty queue — one more victory and the tournament is over!</div>`;
+        html += `<div class="warning-banner">The ${BIG_TITLE} is on a defense streak with no challengers queued — one more champ challenge win ends the tournament!</div>`;
     }
     if (state.phase === "complete") {
         html += `<div class="warning-banner complete">${endingAnnouncement(state)}</div>`;
@@ -247,7 +300,7 @@ function renderPhase2(state) {
     </div>`;
 
     if (p2.can_undo) {
-        html += `<div class="undo-row"><button class="undo-btn" data-action="phase2-undo">Undo last Phase 2 result</button></div>`;
+        html += `<div class="undo-row"><button class="undo-btn" data-action="phase2-undo">Undo last Gauntlet result</button></div>`;
     }
 
     if (state.phase === "phase2") {
@@ -260,15 +313,16 @@ function renderPhase2(state) {
                 <select name="player_id">${playerOptions}</select>
                 <button type="submit">Join Challenge Queue</button>
             </form>
-            <form id="join-rematch-form">
-                <button type="submit">${p2.small_king.name}: Challenge the ${BIG_TITLE}</button>
-            </form>
         </div>`;
     }
 
     html += '<h4>Challenge Queue</h4><ol class="queue-list">';
     p2.queue.forEach((q) => {
-        html += `<li>${q.player_name}${q.entry_type === "rematch" ? ` (title match vs the ${BIG_TITLE})` : ""}</li>`;
+        // Champ challenges are role-based: always the current champs, no
+        // matter who held the title when the entry was queued.
+        html += q.entry_type === "rematch"
+            ? `<li>Champ Challenge — ${p2.small_king.name} vs ${p2.big_king.name}</li>`
+            : `<li>${q.player_name}</li>`;
     });
     if (p2.queue.length === 0) html += "<li>Empty</li>";
     html += "</ol>";
@@ -289,7 +343,7 @@ function renderRoster(state) {
         if (wins) wins.set(loserName, (wins.get(loserName) || 0) + 1);
     });
 
-    let html = '<h4>Phase 2 Roster (who beat who)</h4><table class="roster-table">';
+    let html = '<h4>Gauntlet Roster (who beat who)</h4><table class="roster-table">';
     html += "<tr><th>Player</th><th>Has defeated</th></tr>";
     state.players.forEach((p) => {
         const wins = defeated.get(p.id);
@@ -304,20 +358,11 @@ function renderRoster(state) {
 
 function wireQueueForms() {
     const joinForm = document.getElementById("join-queue-form");
-    const rematchForm = document.getElementById("join-rematch-form");
-
     if (joinForm) {
         joinForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             const playerId = joinForm.querySelector('select[name="player_id"]').value;
             if (await postAction("/api/queue/join", `player_id=${playerId}`)) refreshNow();
-        });
-    }
-    if (rematchForm) {
-        rematchForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const playerId = currentState.phase2.small_king.id;
-            if (await postAction("/api/queue/join_rematch", `player_id=${playerId}`)) refreshNow();
         });
     }
 }
@@ -356,15 +401,18 @@ function render(state) {
 
     if (state.phase === "setup" || state.phase === "phase1") {
         html += renderStartPhase2(state);
-        html += '<div class="hero-cards">';
-        html += phase1MatchCard(state.bracket.next_match, "Next on Bracket", "bracket");
         const rrNext = state.round_robin.next_match;
+        html += '<div class="hero-cards">';
+        html += phase1MatchCard(state.bracket.next_match, "Current Match — Bracket", "bracket");
         html += phase1MatchCard(
             rrNext,
-            rrNext && rrNext.is_tiebreaker ? "Round Robin TIEBREAKER" : "Next on Round Robin",
+            rrNext && rrNext.is_tiebreaker
+                ? "Current Match — Round Robin TIEBREAKER"
+                : "Current Match — Round Robin",
             "round_robin"
         );
         html += "</div>";
+        html += phase1OnDeck(state);
         html += renderBracket(state);
         html += renderRoundRobin(state);
     } else if (state.phase2) {
@@ -406,11 +454,11 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (action === "phase2-result") {
             ok = await postAction("/api/phase2/result", `winner_id=${btn.dataset.winner}`);
         } else if (action === "phase2-undo") {
-            if (confirm("Undo the last Phase 2 result?")) {
+            if (confirm("Undo the last Gauntlet result?")) {
                 ok = await postAction("/api/phase2/undo");
             }
         } else if (action === "start-phase2") {
-            if (confirm("Start Phase 2 (King of the Hill)? Phase 1 results will be locked.")) {
+            if (confirm("Start the Gauntlet? Phase 1 results will be locked.")) {
                 ok = await postAction("/api/phase2/start");
             }
         }

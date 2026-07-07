@@ -85,13 +85,33 @@ def test_join_after_tournament_complete_is_rejected(client):
     assert c.post("/api/queue/join", data={"player_id": 3}).status_code == 400
 
 
-def test_rematch_only_by_small_king_and_only_once(client):
+def test_manual_champ_challenge_override(client):
     c, db_path = client
     seed_phase2(db_path)
-    assert c.post("/api/queue/join_rematch", data={"player_id": 3}).status_code == 400
-    assert c.post("/api/queue/join_rematch", data={"player_id": 2}).status_code == 200
-    # only one queued title match at a time
-    assert c.post("/api/queue/join_rematch", data={"player_id": 2}).status_code == 400
+    # organizer queues one at the back, then a duplicate is rejected
+    resp = c.post(
+        "/organizer/gauntlet/champ_challenge", data={"position": "back"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    queue = query(db_path, "SELECT * FROM challenge_queue ORDER BY position")
+    assert [q["entry_type"] for q in queue] == ["rematch"]
+
+    resp = c.post(
+        "/organizer/gauntlet/champ_challenge", data={"position": "back"},
+        follow_redirects=True,
+    )
+    assert b"already in the queue" in resp.data
+    assert len(query(db_path, "SELECT * FROM challenge_queue")) == 1
+
+
+def test_manual_champ_challenge_front_goes_first(client):
+    c, db_path = client
+    seed_phase2(db_path)
+    c.post("/api/queue/join", data={"player_id": 3})
+    c.post("/organizer/gauntlet/champ_challenge", data={"position": "front"})
+    queue = query(db_path, "SELECT * FROM challenge_queue ORDER BY position")
+    assert [q["entry_type"] for q in queue] == ["rematch", "challenger"]
 
 
 # --- phase 2 result guards ---
@@ -120,19 +140,20 @@ def test_timer_expiry_blocks_results_and_joins(client):
     assert state["ended_reason"] == "timer"
 
 
-def test_stale_rematch_is_voided_when_challenger_takes_the_throne(client):
+def test_takeover_replaces_existing_champ_challenges_with_fresh_pair(client):
     c, db_path = client
     seed_phase2(db_path)
-    # queue: challenger P3, then the Small King's own title match
+    # queue: challenger P3, then an organizer-queued champ challenge
     c.post("/api/queue/join", data={"player_id": 3})
-    c.post("/api/queue/join_rematch", data={"player_id": 2})
-    # P3 dethrones P2 -- P2's queued title match is now meaningless and must go
+    c.post("/organizer/gauntlet/champ_challenge", data={"position": "back"})
+    # P3 dethrones P2: the old champ challenge is replaced by the automatic
+    # top-and-bottom pair (role-based, so never stale)
     assert c.post("/api/phase2/result", data={"winner_id": 3}).status_code == 200
-    queue = query(db_path, "SELECT * FROM challenge_queue")
-    assert queue == []
+    queue = query(db_path, "SELECT * FROM challenge_queue ORDER BY position")
+    assert [q["entry_type"] for q in queue] == ["rematch", "rematch"]
     state = query(db_path, "SELECT small_king_id FROM tournament_state")[0]
     assert state["small_king_id"] == 3
-    # the dethroned champion may re-enter as a regular challenger
+    # the dethroned champ may re-enter as a regular challenger
     assert c.post("/api/queue/join", data={"player_id": 2}).status_code == 200
 
 

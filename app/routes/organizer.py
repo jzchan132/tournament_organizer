@@ -73,7 +73,7 @@ def remove_player(player_id):
         db.rollback()
         flash(
             "Can't remove this player -- they're already part of the bracket, "
-            "round robin, or Phase 2 records. Re-seed the group without them instead."
+            "round robin, or Gauntlet records. Re-seed the group without them instead."
         )
     return redirect(url_for("organizer.index"))
 
@@ -111,7 +111,42 @@ def _revive_if_timer_ended(db):
                 "UPDATE tournament_state SET phase = 'phase2', ended_reason = NULL "
                 "WHERE id = 1"
             )
-            flash("The clock has time again -- Phase 2 is back on!")
+            flash("The clock has time again -- the Gauntlet is back on!")
+
+
+@bp.route("/gauntlet/champ_challenge", methods=["POST"])
+def queue_champ_challenge():
+    """Manual override: queue a champ challenge (Little Champ vs Big Champ).
+
+    Normally these are queued automatically when a new Little Champ rises
+    from the queue; this lets the organizer add one whenever needed.
+    """
+    db = get_db()
+    state = db.execute("SELECT * FROM tournament_state WHERE id = 1").fetchone()
+    if state["phase"] != "phase2":
+        flash("The Gauntlet isn't running -- no champ challenge to queue.")
+        return redirect(url_for("organizer.index"))
+    if db.execute(
+        "SELECT 1 FROM challenge_queue WHERE entry_type = 'rematch'"
+    ).fetchone():
+        flash("A champ challenge is already in the queue.")
+        return redirect(url_for("organizer.index"))
+
+    if request.form.get("position") == "front":
+        pos = db.execute(
+            "SELECT COALESCE(MIN(position), 1) - 1 AS p FROM challenge_queue"
+        ).fetchone()["p"]
+    else:
+        pos = db.execute(
+            "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM challenge_queue"
+        ).fetchone()["p"]
+    db.execute(
+        "INSERT INTO challenge_queue (position, player_id, entry_type) VALUES (?, ?, 'rematch')",
+        (pos, state["small_king_id"]),
+    )
+    db.commit()
+    flash("Champ challenge queued.")
+    return redirect(url_for("organizer.index"))
 
 
 @bp.route("/timer/duration", methods=["POST"])
@@ -127,7 +162,7 @@ def timer_duration():
     )
     _revive_if_timer_ended(db)
     db.commit()
-    flash(f"Phase 2 length set to {minutes} minutes.")
+    flash(f"Gauntlet length set to {minutes} minutes.")
     return redirect(url_for("organizer.index"))
 
 
@@ -145,7 +180,7 @@ def timer_add():
     )
     _revive_if_timer_ended(db)
     db.commit()
-    flash(f"Added {minutes} minutes to the Phase 2 timer.")
+    flash(f"Added {minutes} minutes to the Gauntlet timer.")
     return redirect(url_for("organizer.index"))
 
 
@@ -169,7 +204,7 @@ def timer_set():
     )
     _revive_if_timer_ended(db)
     db.commit()
-    flash(f"Phase 2 timer set to {minutes} minutes remaining.")
+    flash(f"Gauntlet timer set to {minutes} minutes remaining.")
     return redirect(url_for("organizer.index"))
 
 
@@ -177,7 +212,7 @@ def timer_set():
 def seed_bracket():
     db = get_db()
     if not _phase_is_setup(db):
-        flash("Phase 2 has already started -- the bracket is locked.")
+        flash("The Gauntlet has already started -- the bracket is locked.")
         return redirect(url_for("organizer.index"))
     raw_ids = request.form.getlist("seed")
     ids = [int(x) for x in raw_ids if x]
@@ -224,7 +259,7 @@ def seed_bracket():
 def build_round_robin():
     db = get_db()
     if not _phase_is_setup(db):
-        flash("Phase 2 has already started -- the round robin is locked.")
+        flash("The Gauntlet has already started -- the round robin is locked.")
         return redirect(url_for("organizer.index"))
     ids = [r["id"] for r in db.execute("SELECT id FROM players WHERE in_round_robin = 1")]
     if len(ids) < 2:

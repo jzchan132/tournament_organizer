@@ -29,7 +29,7 @@
 <div class="tournament-mgmt">
     <h2>Tournament</h2>
     <p class="hint">
-        Current tournament: <strong>{{ phase }}</strong> phase, {{ player_count }} player{{ '' if player_count == 1 else 's' }}.
+        Current tournament: <strong>{{ phase_label(phase) }}</strong>, {{ player_count }} player{{ '' if player_count == 1 else 's' }}.
         Every change is saved to disk instantly, plus a rolling autosave -- closing the app never loses progress.
     </p>
 

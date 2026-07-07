@@ -613,6 +613,68 @@ input[type="text"]:focus, select:focus {
     border-color: var(--red);
     color: var(--text);
 }
+.format-reminder {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: -0.5rem;
+}
+.ondeck-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: -1rem 0 2rem;
+}
+.ondeck-card {
+    flex: 1;
+    min-width: 240px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.9rem;
+}
+.ondeck-label {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 0.15rem;
+}
+.ondeck-card .who {
+    color: var(--text);
+    font-weight: 600;
+}
+.rules-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem;
+}
+.rules-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--red);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+}
+.rules-card h2 {
+    font-size: 1.1rem;
+    margin-top: 0;
+    color: var(--red-hot);
+}
+.rules-card li {
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+}
+.rules-card strong {
+    color: var(--gold);
+}
+.champ-challenge-controls {
+    margin-bottom: 1.5rem;
+}
+.champ-challenge-controls form {
+    margin-right: 0.5rem;
+}
 .timer-controls {
     display: flex;
     gap: 1.5rem;

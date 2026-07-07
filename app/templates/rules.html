@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Format / Rules{% endblock %}
+{% block content %}
+<h1>Format &amp; Rules</h1>
+
+<div class="rules-grid">
+<section class="rules-card">
+    <h2>Match format</h2>
+    <ul>
+        <li>Every match is a <strong>best of 3 sets</strong>.</li>
+        <li><strong>Rock paper scissors</strong> decides who picks their side.</li>
+        <li><strong>Random stage</strong> every game.</li>
+        <li>Winners record the result on the Dashboard right after the match (mis-clicks can be undone).</li>
+    </ul>
+</section>
+
+<section class="rules-card">
+    <h2>Phase 1 — Bracket &amp; Round Robin</h2>
+    <ul>
+        <li><strong>Bracket</strong>: 8 players, single elimination. The bracket champion becomes the <strong>Big Champ</strong>.</li>
+        <li><strong>Round robin</strong>: 4 players, everyone plays everyone. Most wins becomes the <strong>Little Champ</strong>.</li>
+        <li>Round robin ties for first are settled by tiebreaker rounds — every tied pair plays, wins count toward the standings, and rounds repeat until one player stands alone on top.</li>
+        <li>Both run at the same time on different stations.</li>
+    </ul>
+</section>
+
+<section class="rules-card">
+    <h2>The Gauntlet</h2>
+    <ul>
+        <li>The <strong>Big Champ</strong> holds the top throne; only the <strong>Little Champ</strong> can face them, in a <strong>champ challenge</strong>.</li>
+        <li>Anyone else can challenge the <strong>Little Champ</strong> by joining the challenge queue from the Dashboard.</li>
+        <li>Beat the Little Champ and you take the title — a champ challenge is then automatically queued <strong>next up</strong> (your immediate title shot) and again at the <strong>end of the queue</strong>.</li>
+        <li>If the Little Champ beats the Big Champ in a champ challenge, they <strong>swap titles</strong>. Champ challenges never count against anyone's challenge limit.</li>
+        <li><strong>One shot per champ</strong>: you may only ever challenge a specific person once while they hold Little Champ. Challengers who've already had their shot are removed from the queue once a champ challenge settles who holds the title.</li>
+    </ul>
+</section>
+
+<section class="rules-card">
+    <h2>How it ends</h2>
+    <ul>
+        <li>The Gauntlet runs on a <strong>1 hour</strong> clock. When time expires, the reigning <strong>Big Champ wins the tournament</strong>.</li>
+        <li>It also ends early if the Big Champ wins <strong>two champ challenges back to back</strong> with nobody left in the queue — no challengers left standing.</li>
+    </ul>
+</section>
+</div>
+{% endblock %}

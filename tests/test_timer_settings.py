@@ -43,9 +43,9 @@ def seconds_remaining(client_):
     return resp["phase2"]["seconds_remaining"], resp["phase"]
 
 
-def test_default_duration_is_two_hours(client):
+def test_default_duration_is_one_hour(client):
     c, db_path = client
-    assert get_state(db_path)["phase2_duration_seconds"] == 7200
+    assert get_state(db_path)["phase2_duration_seconds"] == 3600
 
 
 def test_set_length_before_phase2(client):
@@ -64,10 +64,10 @@ def test_add_time_defaults_to_30_minutes(client):
     c, db_path = client
     start_phase2(db_path)
     c.post("/organizer/timer/add", data={})
-    assert get_state(db_path)["phase2_duration_seconds"] == 7200 + 30 * 60
+    assert get_state(db_path)["phase2_duration_seconds"] == 3600 + 30 * 60
 
     c.post("/organizer/timer/add", data={"minutes": 10})
-    assert get_state(db_path)["phase2_duration_seconds"] == 7200 + 40 * 60
+    assert get_state(db_path)["phase2_duration_seconds"] == 3600 + 40 * 60
 
 
 def test_set_remaining_during_phase2(client):
@@ -81,7 +81,7 @@ def test_set_remaining_during_phase2(client):
 
 def test_add_time_revives_timer_ended_tournament(client):
     c, db_path = client
-    start_phase2(db_path, minutes_ago=121)  # past the 2h default
+    start_phase2(db_path, minutes_ago=61)  # past the 1h default
     _, phase = seconds_remaining(c)  # lazy check flips to complete
     assert phase == "complete"
     assert get_state(db_path)["ended_reason"] == "timer"
@@ -116,6 +116,6 @@ def test_rejects_invalid_minutes(client):
     c, db_path = client
     for bad in (0, -5, 100000):
         c.post("/organizer/timer/duration", data={"minutes": bad})
-        assert get_state(db_path)["phase2_duration_seconds"] == 7200
+        assert get_state(db_path)["phase2_duration_seconds"] == 3600
     resp = c.post("/organizer/timer/set", data={"minutes": "abc"}, follow_redirects=True)
     assert b"Enter a time" in resp.data

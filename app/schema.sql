@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS tournament_state (
     queue_empty_warning INTEGER NOT NULL DEFAULT 0,
     ended_reason TEXT,
     -- Total Phase 2 length; organizer-adjustable (add time / set remaining).
-    phase2_duration_seconds INTEGER NOT NULL DEFAULT 7200
+    phase2_duration_seconds INTEGER NOT NULL DEFAULT 3600
 );
 
 CREATE TABLE IF NOT EXISTS players (

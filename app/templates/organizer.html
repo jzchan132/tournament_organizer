@@ -2,7 +2,7 @@
 {% block title %}Organizer{% endblock %}
 {% block content %}
 <h1>Organizer Panel</h1>
-<p class="hint">Set up players and groups here. Match results, undo, and the Phase 2 transition all happen on the <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>.</p>
+<p class="hint">Set up players and groups here. Match results, undo, and the Gauntlet transition all happen on the <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>.</p>
 
 {% with messages = get_flashed_messages() %}
 {% if messages %}
@@ -76,11 +76,24 @@
 </div>
 
 <section>
-    <h2>Phase 2 timer</h2>
+    <h2>Gauntlet controls</h2>
+    <div class="champ-challenge-controls">
+        <p class="hint">Champ challenges (Little Champ vs Big Champ) queue automatically when a new Little Champ rises from the queue. Manual override:</p>
+        <form method="post" action="{{ url_for('organizer.queue_champ_challenge') }}" style="display:inline">
+            <input type="hidden" name="position" value="front">
+            <button type="submit" class="btn-ember" {% if state['phase'] != 'phase2' %}disabled{% endif %}>Queue champ challenge (next up)</button>
+        </form>
+        <form method="post" action="{{ url_for('organizer.queue_champ_challenge') }}" style="display:inline">
+            <input type="hidden" name="position" value="back">
+            <button type="submit" class="btn-ember" {% if state['phase'] != 'phase2' %}disabled{% endif %}>Queue champ challenge (end of queue)</button>
+        </form>
+    </div>
+
+    <h2>Gauntlet timer</h2>
     {% if remaining_minutes is not none %}
     <p>Time remaining: <strong>{{ remaining_minutes }} min</strong> (of {{ duration_minutes }} min total{% if state['phase'] == 'complete' and state['ended_reason'] == 'timer' %} — ended by timer; adding time restarts it{% endif %})</p>
     {% else %}
-    <p>Phase 2 length: <strong>{{ duration_minutes }} min</strong> (timer starts when Phase 2 begins)</p>
+    <p>Gauntlet length: <strong>{{ duration_minutes }} min</strong> (timer starts when the Gauntlet begins)</p>
     {% endif %}
     <div class="timer-controls">
         <form method="post" action="{{ url_for('organizer.timer_duration') }}">
@@ -106,7 +119,7 @@
 
 <section>
     <h2>Status</h2>
-    <p>Tournament phase: {{ state['phase'] }}</p>
+    <p>Tournament phase: {{ phase_label(state["phase"]) }}</p>
     <p>Bracket champion: {{ bracket_champ['name'] if bracket_champ else 'not decided yet' }}</p>
     <p>Round robin champion: {{ rr_champ['name'] if rr_champ else 'not decided yet' }}</p>
 </section>

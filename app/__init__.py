@@ -16,6 +16,13 @@ def create_app():
 
     app.secret_key = "tekken-tournament-organizer"
 
+    # Display names for internal phase values ('phase2' predates the Gauntlet).
+    app.jinja_env.globals["phase_label"] = lambda phase: {
+        "setup": "Phase 1",
+        "phase2": "Gauntlet",
+        "complete": "Complete",
+    }.get(phase, phase)
+
     db.register(app)
 
     from app.persistence import autosave_after_request

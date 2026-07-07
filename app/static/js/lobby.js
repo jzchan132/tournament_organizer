@@ -23,11 +23,12 @@ document.addEventListener("DOMContentLoaded", () => {
             root.innerHTML = '<p class="hint">No other sessions found yet.</p>';
             return;
         }
+        const phaseLabels = { setup: "Phase 1", phase2: "Gauntlet", complete: "Complete" };
         let html = '<table class="saves-table"><tr><th>Session</th><th>Status</th><th></th></tr>';
         sessions.forEach((s) => {
             html += `<tr>
                 <td>${s.name}</td>
-                <td>${s.phase} — ${s.players} players</td>
+                <td>${phaseLabels[s.phase] || s.phase} — ${s.players} players</td>
                 <td><button class="btn-ember" data-join="${s.url}">Join</button></td>
             </tr>`;
         });

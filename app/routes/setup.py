@@ -45,6 +45,11 @@ def landing():
     )
 
 
+@bp.route("/rules")
+def rules():
+    return render_template("rules.html")
+
+
 @bp.route("/qr.png")
 def qr_png():
     ip = get_lan_ip()
