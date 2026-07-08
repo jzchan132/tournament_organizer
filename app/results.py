@@ -213,8 +213,6 @@ def record_phase2_result(db, winner_id):
     _save_phase2_snapshot(db)
 
     db.execute("DELETE FROM challenge_queue WHERE id = ?", (front["id"],))
-    remaining = db.execute("SELECT COUNT(*) AS c FROM challenge_queue").fetchone()["c"]
-    queue_empty_after_pop = remaining == 0
 
     outcome = resolve_phase2_match(
         big_king_id=state["big_king_id"],
@@ -223,7 +221,6 @@ def record_phase2_result(db, winner_id):
         front_entry_type=front["entry_type"],
         front_entry_player_id=front["player_id"],
         winner_id=winner_id,
-        queue_empty_after_pop=queue_empty_after_pop,
     )
 
     db.execute(
@@ -275,16 +272,22 @@ def record_phase2_result(db, winner_id):
         )
         renumber_queue(db)
 
-    # Warning flag: the next Big Champ victory could end it -- true once a
-    # defense streak has started and no regular challengers remain queued.
-    challengers_left = db.execute(
-        "SELECT COUNT(*) AS c FROM challenge_queue WHERE entry_type = 'challenger'"
-    ).fetchone()["c"]
-    warning = (
-        not outcome["phase_complete"]
-        and outcome["consecutive_bk_wins"] >= 1
-        and challengers_left == 0
-    )
+    if outcome["add_champ_challenge_bottom"]:
+        # Champ swap: the demoted champ's rematch goes to the back of the
+        # line, replacing any leftover champ-challenge entry.
+        db.execute("DELETE FROM challenge_queue WHERE entry_type = 'rematch'")
+        next_pos = db.execute(
+            "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM challenge_queue"
+        ).fetchone()["p"]
+        db.execute(
+            "INSERT INTO challenge_queue (position, player_id, entry_type) VALUES (?, ?, 'rematch')",
+            (next_pos, outcome["small_king_id"]),
+        )
+        renumber_queue(db)
+
+    # Warning flag: the Big Champ has won a champ challenge against the
+    # reigning Little Champ -- one more without a champ swap ends it.
+    warning = not outcome["phase_complete"] and outcome["consecutive_bk_wins"] >= 1
 
     new_phase = "complete" if outcome["phase_complete"] else state["phase"]
     db.execute(

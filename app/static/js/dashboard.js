@@ -114,7 +114,7 @@ function endingAnnouncement(state) {
     if (state.phase2.ended_reason === "timer") {
         return `THAT'S TIME! The final bell sounds — ${bk} walks away as the undisputed ${BIG_TITLE}!`;
     }
-    return `IT'S OVER! No challenger left standing — ${bk} has conquered them all and reigns as the undisputed ${BIG_TITLE}!`;
+    return `IT'S OVER! Two champ challenge wins over the same reigning ${SMALL_TITLE} — ${bk} reigns as the undisputed ${BIG_TITLE}!`;
 }
 
 function phase1MatchCard(m, label, kind) {
@@ -287,7 +287,7 @@ function renderPhase2(state) {
         html += `<div class="warning-banner intro">THE GAUNTLET BEGINS! Bracket champion <strong>${p2.big_king.name}</strong> enters as the ${BIG_TITLE} — round robin champion <strong>${p2.small_king.name}</strong> rises as the ${SMALL_TITLE}. Who dares to challenge?</div>`;
     }
     if (p2.queue_empty_warning && state.phase === "phase2") {
-        html += `<div class="warning-banner">The ${BIG_TITLE} is on a defense streak with no challengers queued — one more champ challenge win ends the tournament!</div>`;
+        html += `<div class="warning-banner">The ${BIG_TITLE} has won a champ challenge against this ${SMALL_TITLE} — one more win without a champ swap ends the tournament!</div>`;
     }
     if (state.phase === "complete") {
         html += `<div class="warning-banner complete">${endingAnnouncement(state)}</div>`;

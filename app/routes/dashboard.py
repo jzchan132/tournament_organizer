@@ -187,7 +187,5 @@ def queue_join():
         "INSERT INTO challenge_queue (position, player_id, entry_type) VALUES (?, ?, 'challenger')",
         (new_pos, player_id),
     )
-    # A fresh challenger means the next Big Champ win can't end the Gauntlet.
-    db.execute("UPDATE tournament_state SET queue_empty_warning = 0 WHERE id = 1")
     db.commit()
     return jsonify({"ok": True})

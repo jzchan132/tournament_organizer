@@ -138,7 +138,9 @@ def test_purge_after_swap_targets_the_new_little_champ(client):
     assert state["big_king_id"] == SMALL
     assert state["small_king_id"] == BIG
     assert state["consecutive_bk_wins"] == 0
-    assert get_queue(db_path) == []
+    # a champ swap queues a fresh champ challenge at the bottom
+    queue = get_queue(db_path)
+    assert [q["entry_type"] for q in queue] == ["rematch"]
     # champ challenges never record history
     assert not has_history(db_path, SMALL, BIG)
     assert not has_history(db_path, BIG, SMALL)
