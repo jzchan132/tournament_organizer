@@ -84,7 +84,6 @@ def api_state():
             },
             "queue": _rows(get_queue(db)),
             "next_match": _row(front),
-            "consecutive_bk_wins": state["consecutive_bk_wins"],
             "queue_empty_warning": bool(state["queue_empty_warning"]),
             "seconds_remaining": phase2_seconds_remaining(db, state),
             "match_log": _rows(get_phase2_match_log(db)),

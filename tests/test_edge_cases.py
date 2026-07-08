@@ -222,5 +222,8 @@ def test_phase2_start_blocked_by_pending_tiebreaker(client):
     tb = query(db_path, "SELECT * FROM round_robin_matches WHERE is_tiebreaker = 1")[0]
     c.post(f"/api/round_robin/match/{tb['id']}/result", data={"winner_id": tb["player1_id"]})
     assert c.post("/api/phase2/start").status_code == 200
+    # the Gauntlet opens with champ challenges at the top and bottom
+    queue = query(db_path, "SELECT * FROM challenge_queue ORDER BY position")
+    assert [q["entry_type"] for q in queue] == ["rematch", "rematch"]
     # double-start is rejected
     assert c.post("/api/phase2/start").status_code == 400

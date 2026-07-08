@@ -118,7 +118,8 @@ def test_purge_is_deferred_until_champ_challenge_resolves(client):
     assert resp.status_code == 200
     queue = get_queue(db_path)
     assert [q["entry_type"] for q in queue] == ["rematch"]  # OTHER voided
-    assert get_state(db_path)["consecutive_bk_wins"] == 1
+    # one champ challenge left: the warning is on
+    assert get_state(db_path)["queue_empty_warning"] == 1
 
 
 def test_purge_after_swap_targets_the_new_little_champ(client):
@@ -137,7 +138,6 @@ def test_purge_after_swap_targets_the_new_little_champ(client):
     state = get_state(db_path)
     assert state["big_king_id"] == SMALL
     assert state["small_king_id"] == BIG
-    assert state["consecutive_bk_wins"] == 0
     # a champ swap queues a fresh champ challenge at the bottom
     queue = get_queue(db_path)
     assert [q["entry_type"] for q in queue] == ["rematch"]
@@ -146,25 +146,23 @@ def test_purge_after_swap_targets_the_new_little_champ(client):
     assert not has_history(db_path, BIG, SMALL)
 
 
-def test_no_auto_requeue_and_double_defense_ends_tournament(client):
+def test_defending_all_champ_challenges_ends_tournament(client):
     c, db_path = client
-    seed(db_path, consecutive_bk_wins=0)
-    # the auto-queued pair from a takeover: champ challenge at top and bottom
+    seed(db_path)
+    # the pair created at Gauntlet start / on rotation: top and bottom
     add_queue_entry(db_path, SMALL, "rematch", position=0)
     add_queue_entry(db_path, SMALL, "rematch", position=1)
 
     resp = c.post("/api/phase2/result", data={"winner_id": BIG})
     assert resp.status_code == 200
     state = get_state(db_path)
-    assert state["consecutive_bk_wins"] == 1
-    assert state["queue_empty_warning"] == 1  # no challengers left -- next win ends it
+    assert state["queue_empty_warning"] == 1  # one challenge left -- next win ends it
     assert state["phase"] == "phase2"
     assert [q["entry_type"] for q in get_queue(db_path)] == ["rematch"]  # no requeue
 
     resp = c.post("/api/phase2/result", data={"winner_id": BIG})
     assert resp.status_code == 200
     state = get_state(db_path)
-    assert state["consecutive_bk_wins"] == 2
     assert state["phase"] == "complete"
     assert state["ended_reason"] == "queue_exhausted"
     assert get_queue(db_path) == []

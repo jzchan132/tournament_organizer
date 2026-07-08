@@ -9,21 +9,27 @@ let lastPhase = null; // for announcing phase transitions
 const BIG_TITLE = "Big Champ";
 const SMALL_TITLE = "Little Champ";
 
+const chime = new Audio("/static/sounds/notify.wav");
+
 function playChime() {
-    try {
-        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        o.connect(g);
-        g.connect(audioCtx.destination);
-        o.frequency.value = 880;
-        g.gain.setValueAtTime(0.15, audioCtx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-        o.start();
-        o.stop(audioCtx.currentTime + 0.4);
-    } catch (e) {
-        // audio unavailable (e.g. no user interaction yet) -- not critical
-    }
+    chime.currentTime = 0;
+    chime.play().catch(() => {
+        // Autoplay blocked or file unavailable -- fall back to a beep.
+        try {
+            audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.connect(g);
+            g.connect(audioCtx.destination);
+            o.frequency.value = 880;
+            g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+            o.start();
+            o.stop(audioCtx.currentTime + 0.4);
+        } catch (e) {
+            // audio unavailable entirely -- not critical
+        }
+    });
 }
 
 function showToast(text, isError) {
@@ -114,7 +120,7 @@ function endingAnnouncement(state) {
     if (state.phase2.ended_reason === "timer") {
         return `THAT'S TIME! The final bell sounds — ${bk} walks away as the undisputed ${BIG_TITLE}!`;
     }
-    return `IT'S OVER! Two champ challenge wins over the same reigning ${SMALL_TITLE} — ${bk} reigns as the undisputed ${BIG_TITLE}!`;
+    return `IT'S OVER! ${bk} has beaten every champ challenge — the undisputed ${BIG_TITLE}!`;
 }
 
 function phase1MatchCard(m, label, kind) {
@@ -287,7 +293,7 @@ function renderPhase2(state) {
         html += `<div class="warning-banner intro">THE GAUNTLET BEGINS! Bracket champion <strong>${p2.big_king.name}</strong> enters as the ${BIG_TITLE} — round robin champion <strong>${p2.small_king.name}</strong> rises as the ${SMALL_TITLE}. Who dares to challenge?</div>`;
     }
     if (p2.queue_empty_warning && state.phase === "phase2") {
-        html += `<div class="warning-banner">The ${BIG_TITLE} has won a champ challenge against this ${SMALL_TITLE} — one more win without a champ swap ends the tournament!</div>`;
+        html += `<div class="warning-banner">One champ challenge left — if the ${BIG_TITLE} wins it, the tournament is over!</div>`;
     }
     if (state.phase === "complete") {
         html += `<div class="warning-banner complete">${endingAnnouncement(state)}</div>`;

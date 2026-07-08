@@ -146,69 +146,119 @@ def seed_champ_challenge_pair(db_path):
     )
 
 
-def test_defended_challenges_do_not_reset_the_streak(client):
+def test_big_champ_wins_both_challenges_after_rotation_ends_tournament(client):
     c, db_path = client
     seed_gauntlet(db_path)
     seed_champ_challenge_pair(db_path)
+    c.post("/api/queue/join", data={"player_id": 3})
 
-    # first defense: streak starts against this reigning Little Champ
+    # Big Champ defends the top challenge; P3 sits above the bottom one
     c.post("/api/phase2/result", data={"winner_id": 1})
-    # someone joins -- they slot in ABOVE the bottom champ challenge
-    assert c.post("/api/queue/join", data={"player_id": 3}).status_code == 200
+    # P3 TAKES the Little Champ title -- a rotation: fresh pair queued
+    c.post("/api/phase2/result", data={"winner_id": 3})
     queue = query(db_path, "SELECT * FROM challenge_queue ORDER BY position")
-    assert [q["entry_type"] for q in queue] == ["challenger", "rematch"]
+    assert [q["entry_type"] for q in queue] == ["rematch", "rematch"]
 
-    # the Little Champ defends: same champ still reigns, streak survives
-    c.post("/api/phase2/result", data={"winner_id": 2})
+    # Big Champ wins BOTH champ challenges of the new pair -> tournament over
+    c.post("/api/phase2/result", data={"winner_id": 1})
     state = query(db_path, "SELECT * FROM tournament_state")[0]
-    assert state["consecutive_bk_wins"] == 1
-
-    # second champ-challenge win against the same reigning champ: it's over
+    assert state["phase"] == "phase2"  # one challenge still pending
+    assert state["queue_empty_warning"] == 1
     c.post("/api/phase2/result", data={"winner_id": 1})
     state = query(db_path, "SELECT * FROM tournament_state")[0]
     assert state["phase"] == "complete"
     assert state["ended_reason"] == "queue_exhausted"
 
 
-def test_champ_swap_resets_the_streak(client):
+def test_big_champ_wins_the_post_swap_challenge_ends_tournament(client):
     c, db_path = client
     seed_gauntlet(db_path)
     seed_champ_challenge_pair(db_path)
 
-    # first defense: streak 1
-    c.post("/api/phase2/result", data={"winner_id": 1})
-    # a challenger joins and TAKES the title -- that's a champ swap
-    c.post("/api/queue/join", data={"player_id": 3})
-    c.post("/api/phase2/result", data={"winner_id": 3})
-    state = query(db_path, "SELECT * FROM tournament_state")[0]
-    assert state["small_king_id"] == 3
-    assert state["consecutive_bk_wins"] == 0
-
-    # the next defense is #1 of a fresh streak, not the ending
-    c.post("/api/phase2/result", data={"winner_id": 1})
-    state = query(db_path, "SELECT * FROM tournament_state")[0]
-    assert state["phase"] == "phase2"
-    assert state["consecutive_bk_wins"] == 1
-
-
-def test_swap_via_champ_challenge_queues_bottom_challenge_and_resets(client):
-    c, db_path = client
-    seed_gauntlet(db_path)
-    seed_champ_challenge_pair(db_path)
-    c.post("/api/queue/join", data={"player_id": 3})
-
-    # first defense: streak 1; challenger sits between the champ challenges
-    c.post("/api/phase2/result", data={"winner_id": 1})
-    # Little Champ defends the challenger (streak survives at 1)
+    # Little Champ WINS the top champ challenge: champ swap. The pair is
+    # replaced by a single champ challenge at the bottom.
     c.post("/api/phase2/result", data={"winner_id": 2})
-    # Little Champ WINS the bottom champ challenge: swap, streak resets,
-    # and a fresh champ challenge is queued at the bottom
-    c.post("/api/phase2/result", data={"winner_id": 2})
-
     state = query(db_path, "SELECT * FROM tournament_state")[0]
-    assert state["phase"] == "phase2"  # no ending -- the swap reset the streak
     assert state["big_king_id"] == 2
     assert state["small_king_id"] == 1
-    assert state["consecutive_bk_wins"] == 0
     queue = query(db_path, "SELECT * FROM challenge_queue ORDER BY position")
     assert [q["entry_type"] for q in queue] == ["rematch"]
+    assert state["queue_empty_warning"] == 1  # single pending challenge
+
+    # the new Big Champ wins that champ challenge -> all challenges beaten
+    c.post("/api/phase2/result", data={"winner_id": 2})
+    state = query(db_path, "SELECT * FROM tournament_state")[0]
+    assert state["phase"] == "complete"
+    assert state["ended_reason"] == "queue_exhausted"
+
+
+def test_defended_challenger_matches_do_not_affect_the_win_condition(client):
+    c, db_path = client
+    seed_gauntlet(db_path)
+    seed_champ_challenge_pair(db_path)
+
+    c.post("/api/phase2/result", data={"winner_id": 1})  # defense 1 of 2
+    # challengers join and are defended -- the pending challenge count
+    # (and therefore the win condition) is untouched
+    c.post("/api/queue/join", data={"player_id": 3})
+    c.post("/api/phase2/result", data={"winner_id": 2})
+    c.post("/api/queue/join", data={"player_id": 4})
+    c.post("/api/phase2/result", data={"winner_id": 2})
+
+    c.post("/api/phase2/result", data={"winner_id": 1})  # last challenge beaten
+    state = query(db_path, "SELECT * FROM tournament_state")[0]
+    assert state["phase"] == "complete"
+    assert state["ended_reason"] == "queue_exhausted"
+
+
+def test_champ_movement_is_never_impossible(client):
+    """Property test: play many random Gauntlets and assert that while the
+    tournament runs there is ALWAYS a pending champ challenge (the path to
+    the title never disappears) and always a playable match."""
+    import random
+
+    c, db_path = client
+    seed_gauntlet(db_path, extras=(3, 4, 5, 6))
+    seed_champ_challenge_pair(db_path)  # as created at Gauntlet start
+
+    for seed_value in range(5):
+        rng = random.Random(seed_value)
+        # reset to a fresh Gauntlet
+        execute(db_path, "DELETE FROM challenge_queue")
+        execute(db_path, "DELETE FROM challenger_history")
+        execute(db_path, "DELETE FROM phase2_matches")
+        execute(
+            db_path,
+            "UPDATE tournament_state SET phase = 'phase2', big_king_id = 1, "
+            "small_king_id = 2, ended_reason = NULL, queue_empty_warning = 0 WHERE id = 1",
+        )
+        seed_champ_challenge_pair(db_path)
+
+        for _ in range(120):
+            state = query(db_path, "SELECT * FROM tournament_state")[0]
+            if state["phase"] != "phase2":
+                break
+
+            queue = query(db_path, "SELECT * FROM challenge_queue ORDER BY position")
+            # THE invariant: a champ challenge is always pending, so the
+            # Little Champ always has a path to the top title
+            assert any(q["entry_type"] == "rematch" for q in queue), (
+                f"no champ challenge pending (seed {seed_value})"
+            )
+            assert queue, f"no playable match (seed {seed_value})"
+
+            # sometimes a random eligible player joins the queue
+            if rng.random() < 0.4:
+                candidate = rng.choice([3, 4, 5, 6])
+                c.post("/api/queue/join", data={"player_id": candidate})
+                queue = query(db_path, "SELECT * FROM challenge_queue ORDER BY position")
+
+            # play the front match with a random winner
+            front = queue[0]
+            if front["entry_type"] == "rematch":
+                contenders = (state["small_king_id"], state["big_king_id"])
+            else:
+                contenders = (front["player_id"], state["small_king_id"])
+            winner = rng.choice(contenders)
+            resp = c.post("/api/phase2/result", data={"winner_id": winner})
+            assert resp.status_code == 200, resp.get_json()

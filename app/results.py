@@ -126,6 +126,18 @@ def start_phase2(db):
         "phase2_started_at = datetime('now') WHERE id = 1",
         (champ["id"], rr_champ["id"]),
     )
+    # The Gauntlet opens with champ challenges at the top and bottom of the
+    # queue -- the Little Champ gets an immediate title shot, and one more
+    # once the challenger queue has been worked through.
+    db.execute("DELETE FROM challenge_queue")
+    db.execute(
+        "INSERT INTO challenge_queue (position, player_id, entry_type) VALUES (0, ?, 'rematch')",
+        (rr_champ["id"],),
+    )
+    db.execute(
+        "INSERT INTO challenge_queue (position, player_id, entry_type) VALUES (1, ?, 'rematch')",
+        (rr_champ["id"],),
+    )
     db.commit()
     return None
 
@@ -213,14 +225,17 @@ def record_phase2_result(db, winner_id):
     _save_phase2_snapshot(db)
 
     db.execute("DELETE FROM challenge_queue WHERE id = ?", (front["id"],))
+    remaining_ccs = db.execute(
+        "SELECT COUNT(*) AS c FROM challenge_queue WHERE entry_type = 'rematch'"
+    ).fetchone()["c"]
 
     outcome = resolve_phase2_match(
         big_king_id=state["big_king_id"],
         small_king_id=state["small_king_id"],
-        consecutive_bk_wins=state["consecutive_bk_wins"],
         front_entry_type=front["entry_type"],
         front_entry_player_id=front["player_id"],
         winner_id=winner_id,
+        remaining_champ_challenges=remaining_ccs,
     )
 
     db.execute(
@@ -285,18 +300,21 @@ def record_phase2_result(db, winner_id):
         )
         renumber_queue(db)
 
-    # Warning flag: the Big Champ has won a champ challenge against the
-    # reigning Little Champ -- one more without a champ swap ends it.
-    warning = not outcome["phase_complete"] and outcome["consecutive_bk_wins"] >= 1
+    # Warning flag: exactly one champ challenge pending means a Big Champ
+    # win in it ends the tournament (unless a takeover re-ups the pair
+    # before it's played).
+    ccs_pending = db.execute(
+        "SELECT COUNT(*) AS c FROM challenge_queue WHERE entry_type = 'rematch'"
+    ).fetchone()["c"]
+    warning = not outcome["phase_complete"] and ccs_pending == 1
 
     new_phase = "complete" if outcome["phase_complete"] else state["phase"]
     db.execute(
-        "UPDATE tournament_state SET big_king_id = ?, small_king_id = ?, consecutive_bk_wins = ?, "
+        "UPDATE tournament_state SET big_king_id = ?, small_king_id = ?, consecutive_bk_wins = 0, "
         "queue_empty_warning = ?, phase = ?, ended_reason = ? WHERE id = 1",
         (
             outcome["big_king_id"],
             outcome["small_king_id"],
-            outcome["consecutive_bk_wins"],
             1 if warning else 0,
             new_phase,
             outcome["ended_reason"],
