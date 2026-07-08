@@ -1,5 +1,5 @@
 import sqlite3
-from itertools import combinations
+
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
@@ -14,6 +14,7 @@ from app.queries import (
     phase2_elapsed_seconds,
     phase2_seconds_remaining,
     round_robin_champion,
+    round_robin_schedule,
 )
 
 bp = Blueprint("organizer", __name__, url_prefix="/organizer")
@@ -267,10 +268,36 @@ def build_round_robin():
         return redirect(url_for("organizer.index"))
 
     db.execute("DELETE FROM round_robin_matches")
-    for p1, p2 in combinations(ids, 2):
+    # Circle-method order: rounds of disjoint pairs, so nobody plays three
+    # matches in a row.
+    for p1, p2 in round_robin_schedule(ids):
         db.execute(
             "INSERT INTO round_robin_matches (player1_id, player2_id) VALUES (?, ?)",
             (p1, p2),
         )
     db.commit()
+    return redirect(url_for("organizer.index"))
+
+
+@bp.route("/bracket/reset", methods=["POST"])
+def reset_bracket():
+    db = get_db()
+    if not _phase_is_setup(db):
+        flash("The Gauntlet has already started -- the bracket is locked.")
+        return redirect(url_for("organizer.index"))
+    db.execute("DELETE FROM bracket_matches")
+    db.commit()
+    flash("Bracket cleared -- players kept.")
+    return redirect(url_for("organizer.index"))
+
+
+@bp.route("/round_robin/reset", methods=["POST"])
+def reset_round_robin():
+    db = get_db()
+    if not _phase_is_setup(db):
+        flash("The Gauntlet has already started -- the round robin is locked.")
+        return redirect(url_for("organizer.index"))
+    db.execute("DELETE FROM round_robin_matches")
+    db.commit()
+    flash("Round robin cleared -- players kept.")
     return redirect(url_for("organizer.index"))

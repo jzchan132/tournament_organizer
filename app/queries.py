@@ -134,6 +134,29 @@ def round_robin_champion(db):
     return resolve_rr_champion(db)["champion"]
 
 
+def round_robin_schedule(ids):
+    """All-pairs match order via the circle method.
+
+    Matches come out grouped into rounds of disjoint pairs, so back-to-back
+    matches never share a player within a round and nobody ever plays three
+    matches in a row (playing twice in a row can happen at round boundaries
+    -- unavoidable with this few players).
+    """
+    players = list(ids)
+    if len(players) % 2:
+        players.append(None)  # bye slot for odd counts
+    n = len(players)
+    schedule = []
+    for _ in range(n - 1):
+        for i in range(n // 2):
+            a, b = players[i], players[n - 1 - i]
+            if a is not None and b is not None:
+                schedule.append((a, b))
+        # rotate everyone but the first player
+        players = [players[0]] + [players[-1]] + players[1:-1]
+    return schedule
+
+
 def round_robin_next_match(db):
     row = db.execute(
         """SELECT rm.*, p1.name AS player1_name, p2.name AS player2_name

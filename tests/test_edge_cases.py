@@ -207,13 +207,13 @@ def test_phase2_start_blocked_by_pending_tiebreaker(client):
     ids = sorted({m["player1_id"] for m in rr} | {m["player2_id"] for m in rr})
     a, b, x, y = ids
     winners = {
-        (a, b): a, (a, x): a, (a, y): y,
-        (b, x): b, (b, y): b, (x, y): x,
+        frozenset((a, b)): a, frozenset((a, x)): a, frozenset((a, y)): y,
+        frozenset((b, x)): b, frozenset((b, y)): b, frozenset((x, y)): x,
     }
     for m in rr:
         c.post(
             f"/api/round_robin/match/{m['id']}/result",
-            data={"winner_id": winners[(m["player1_id"], m["player2_id"])]},
+            data={"winner_id": winners[frozenset((m["player1_id"], m["player2_id"]))]},
         )
 
     resp = c.post("/api/phase2/start")

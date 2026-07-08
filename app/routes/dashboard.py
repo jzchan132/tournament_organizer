@@ -167,12 +167,25 @@ def queue_join():
     if already_queued:
         return jsonify({"error": "You're already in the queue."}), 400
 
-    next_pos = db.execute(
-        "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM challenge_queue"
-    ).fetchone()["p"]
+    # New challengers slot in ABOVE a trailing champ challenge, so the bottom
+    # champ challenge always stays last. This also guarantees the double-
+    # defense ending can only happen when nobody joins between the two champ
+    # challenges (or everyone eligible has already used their shot).
+    last = db.execute(
+        "SELECT id, position, entry_type FROM challenge_queue "
+        "ORDER BY position DESC LIMIT 1"
+    ).fetchone()
+    if last and last["entry_type"] == "rematch":
+        new_pos = last["position"]
+        db.execute(
+            "UPDATE challenge_queue SET position = position + 1 WHERE id = ?",
+            (last["id"],),
+        )
+    else:
+        new_pos = last["position"] + 1 if last else 0
     db.execute(
         "INSERT INTO challenge_queue (position, player_id, entry_type) VALUES (?, ?, 'challenger')",
-        (next_pos, player_id),
+        (new_pos, player_id),
     )
     # A fresh challenger means the next Big Champ win can't end the Gauntlet.
     db.execute("UPDATE tournament_state SET queue_empty_warning = 0 WHERE id = 1")

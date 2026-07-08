@@ -33,10 +33,12 @@ def setup_rr(c, db_path):
     conn.commit()
     conn.close()
     c.post("/organizer/round_robin/build")
-    return {
-        (m["player1_id"], m["player2_id"]): m["id"]
-        for m in query(db_path, "SELECT * FROM round_robin_matches")
-    }
+    # key by both orientations -- the schedule decides who is player1
+    pairs = {}
+    for m in query(db_path, "SELECT * FROM round_robin_matches"):
+        pairs[(m["player1_id"], m["player2_id"])] = m["id"]
+        pairs[(m["player2_id"], m["player1_id"])] = m["id"]
+    return pairs
 
 
 def record(c, match_id, winner_id):

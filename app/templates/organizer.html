@@ -38,11 +38,17 @@
         {% endfor %}
     </ul>
 
-    <form method="post" action="{{ url_for('organizer.seed_bracket') }}" id="seed-form">
-        <button type="submit" class="btn-ember" {% if bracket_players|length != 8 %}disabled{% endif %}>
-            Build bracket{% if bracket_players|length != 8 %} (needs exactly 8){% endif %}
-        </button>
-    </form>
+    <div class="build-row">
+        <form method="post" action="{{ url_for('organizer.seed_bracket') }}" id="seed-form">
+            <button type="submit" class="btn-ember" {% if bracket_players|length != 8 %}disabled{% endif %}>
+                Build bracket{% if bracket_players|length != 8 %} (needs exactly 8){% endif %}
+            </button>
+        </form>
+        <form method="post" action="{{ url_for('organizer.reset_bracket') }}"
+              onsubmit="return confirm('Clear the bracket? Players are kept, all bracket matches are removed.')">
+            <button type="submit" class="btn-quiet" {% if state['phase'] != 'setup' %}disabled{% endif %}>Reset bracket</button>
+        </form>
+    </div>
     {% include "partials/bracket.html" with context %}
 </section>
 
@@ -68,9 +74,15 @@
         {% endfor %}
     </ul>
 
-    <form method="post" action="{{ url_for('organizer.build_round_robin') }}">
-        <button type="submit" class="btn-ember" {% if rr_players|length < 2 %}disabled{% endif %}>Build round robin (everyone plays everyone)</button>
-    </form>
+    <div class="build-row">
+        <form method="post" action="{{ url_for('organizer.build_round_robin') }}">
+            <button type="submit" class="btn-ember" {% if rr_players|length < 2 %}disabled{% endif %}>Build round robin (everyone plays everyone)</button>
+        </form>
+        <form method="post" action="{{ url_for('organizer.reset_round_robin') }}"
+              onsubmit="return confirm('Clear the round robin? Players are kept, all matches are removed.')">
+            <button type="submit" class="btn-quiet" {% if state['phase'] != 'setup' %}disabled{% endif %}>Reset round robin</button>
+        </form>
+    </div>
     {% include "partials/round_robin.html" with context %}
 </section>
 </div>
